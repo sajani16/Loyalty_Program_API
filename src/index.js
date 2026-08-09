@@ -3,17 +3,17 @@ import express, { Router } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
-import { logger } from "./src/utils/logger.js";
-import connectDB from "./src/config/database.js";
-import routes from "./src/routes/index.js";
-import errorHandler from "./src/middlewares/errorHandler.js";
+// import { logger } from "./utils/logger.js";
+import connectDB from "./config/database.js";
+import routes from "./routes/index.js";
+import errorHandler from "./middlewares/errorHandler.js";
 import http from "http";
-import { initSocket } from "./src/sockets/notification.socket.js";
-import "./src/config/firebase.js";
+// import { initSocket } from "./src/sockets/notification.socket.js";
+import "./config/firebase.js";
 // import  seedDefaults  from "./src/config/seed.js";
 
 const app = express();
-const httpServer = http.createServer(app);
+// const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 // Connect DB
@@ -55,15 +55,15 @@ app.get("/", (req, res) =>
 // Error handler
 app.use(errorHandler);
 
-// app.listen(PORT, async () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
-
-initSocket(httpServer, {
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
-  redisUrl: process.env.REDIS_URL,
-});
-
-httpServer.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// initSocket(httpServer, {
+//   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
+//   redisUrl: process.env.REDIS_URL,
+// });
+
+// httpServer.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });

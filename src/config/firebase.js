@@ -1,13 +1,17 @@
-import admin from "firebase-admin";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const serviceAccount = require("./loyalty-program-ce00d-firebase-adminsdk-fbsvc-a20767648f.json");
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+const serviceAccount = require(
+  "./loyalty-program-ce00d-firebase-adminsdk-fbsvc-a20767648f.json"
+);
 
-export default admin;
+const firebaseApp =
+  getApps().length === 0
+    ? initializeApp({
+        credential: cert(serviceAccount),
+      })
+    : getApps()[0];
+
+export default firebaseApp;
