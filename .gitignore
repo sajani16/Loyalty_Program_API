@@ -1,0 +1,15 @@
+node_modules/
+.env
+/public/uploads/
+package-lock.json
+# macOS / external drive metadata
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100/
+.Trashes/
+scripts/
+postman/
+/src/config/loyalty-program-ce00d-firebase-adminsdk-fbsvc-a20767648f.json
+README.md
