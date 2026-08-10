@@ -6,35 +6,30 @@ export async function createUser(userObj) {
 }
 
 export async function findUserByEmail(email) {
-  return User.findOne({ email, isDeleted: false }).select("-isDeleted").lean();
+  return User.findOne({ email, isDeleted: false })
+    .select("-isDeleted")
+    .lean();
 }
 
-export async function findUserByPhone(phone) {
-  return User.findOne({ phone, isDeleted: false }).select("-isDeleted").lean();
+export async function findUserByEmailWithPassword(email) {
+  return User.findOne({ email, isDeleted: false })
+    .populate("role")
+    .lean();
 }
 
 export async function findUserById(id) {
   return User.findOne({ _id: id, isDeleted: false })
     .select(
-      `
-      -password
-      -isDeleted
-      -updatedAt
-      -createdAt
-      -otp
-      -otpExpires
-      -resetPasswordToken
-      -resetPasswordExpires
-      -__v
-      `,
+      "-password -isDeleted -updatedAt -createdAt -otp -otpExpires -resetPasswordToken -resetPasswordExpires -__v",
     )
+    .populate("role")
     .lean();
 }
 
-export async function findUserByIdWithPw(id) {
-  return User.findOne({ _id: id, isDeleted: false })
-    .select("-isDeleted -updatedAt -createdAt")
-    .lean();
+export async function updateUser(id, update) {
+  return User.findOneAndUpdate({ _id: id, isDeleted: false }, update, {
+    new: true,
+  }).lean();
 }
 
 export async function findUserByResetToken(resetPasswordToken) {
@@ -47,49 +42,3 @@ export async function findUserByResetToken(resetPasswordToken) {
     .lean();
 }
 
-export async function updateUser(id, update) {
-  return User.findOneAndUpdate({ _id: id, isDeleted: false }, update, {
-    new: true,
-  }).lean();
-}
-
-export async function listUsers(filter, options) {
-  // return User.find({ ...filter, isDeleted: false })
-  //   .sort({
-  //     createdAt: -1,
-  //   })
-  //   .select("-updatedAt -password -isDeleted")
-  //   .populate("roles")
-  //   .lean();
-  const data = await User.paginate(filter, options);
-  return data;
-}
-export async function listUsersDropdown(filter = {}) {
-  return User.find({
-    ...filter,
-    isDeleted: false,
-    status: "active",
-  })
-    .sort({
-      createdAt: -1,
-    })
-    .select("name _id email")
-    .lean();
-}
-
-export async function deleteUser(id) {
-  return User.findByIdAndUpdate(id, { isDeleted: true }, { new: true }).lean();
-}
-
-export async function getAllUsersForDropdown(filter = {}) {
-  return User.find({
-    ...filter,
-    isDeleted: false,
-    status: "active",
-  })
-    .sort({
-      createdAt: -1,
-    })
-    .select("name _id email")
-    .lean();
-}

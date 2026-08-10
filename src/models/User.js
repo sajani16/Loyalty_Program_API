@@ -5,21 +5,17 @@ const UserSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String },
+    password: { type: String, required: true },
     phone: {
       type: String,
       sparse: true,
       index: true,
     },
-    // companyLogo: {
-    //   type: String,
-    //   trim: true,
-    //   default: null,
-    // },
-    userType: {
-      type: String,
-      enum: ["admin", "superadmin"],
-      default: "admin",
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      required: true,
+      // Will be set to admin role by default
     },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     isDeleted: { type: Boolean, default: false },

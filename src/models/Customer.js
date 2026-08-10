@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 
-const BusinessSchema = new mongoose.Schema(
+const CustomerSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -15,9 +15,9 @@ const BusinessSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Role",
       required: true,
-      // Will be set to business role
+      // Will be set to customer role
     },
-  
+    
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     isDeleted: { type: Boolean, default: false },
     otp: {
@@ -40,7 +40,7 @@ const BusinessSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-BusinessSchema.index({ email: 1, isDeleted: 1 }, { unique: true });
-BusinessSchema.plugin(mongoosePaginate);
+CustomerSchema.index({ email: 1, isDeleted: 1 }, { unique: true });
+CustomerSchema.plugin(mongoosePaginate);
 
-export default mongoose.model("Business", BusinessSchema);
+export default mongoose.model("Customer", CustomerSchema);

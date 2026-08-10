@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import * as userRepository from "../repository/user.repository.js";
+import * as customerRepository from "../repository/customer.repository.js";
+import * as businessRepository from "../repository/business.repository.js";
 import { logger } from "../utils/logger.js";
 
 dotenv.config();
@@ -29,7 +30,20 @@ export default async function auth(req, res, next) {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await userRepository.findUserById(decoded.id);
+
+    // Determine which repository to use based on userType
+    let user;
+    const repo = decoded.userType === "customer" 
+      ? customerRepository 
+      : businessRepository;
+
+    // Try to find user in the appropriate collection
+    if (decoded.userType === "customer") {
+      user = await customerRepository.findCustomerById(decoded.id);
+    } else if (decoded.userType === "business") {
+      user = await businessRepository.findBusinessById(decoded.id);
+    }
+
     if (!user) {
       return unauthorized(res, {
         code: "UNAUTHORIZED",
@@ -37,7 +51,14 @@ export default async function auth(req, res, next) {
       });
     }
 
-    req.user = user;
+    // Attach user info to request with userType
+    req.user = {
+      id: decoded.id,
+      userType: decoded.userType,
+      email: decoded.email,
+      ...user,
+    };
+
     next();
   } catch (err) {
     logger("auth", "JWT validation failed", { error: err.message });

@@ -12,4 +12,5 @@ package-lock.json
 scripts/
 postman/
 /src/config/loyalty-program-ce00d-firebase-adminsdk-fbsvc-a20767648f.json
+/CRUD_ENDPOINTS.md
 README.md

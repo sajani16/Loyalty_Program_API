@@ -29,6 +29,7 @@
     "mongoose-paginate-v2": "^1.9.5",
     "morgan": "^1.11.0",
     "resend": "^6.18.1",
+    "yup": "^1.7.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
