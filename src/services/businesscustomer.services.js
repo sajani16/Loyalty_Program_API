@@ -1,7 +1,9 @@
 import * as bcRepo from "../repository/businesscustomer.repository.js";
 import * as businessRepo from "../repository/business.repository.js";
 import * as customerRepo from "../repository/customer.repository.js";
+import * as loyaltyReqRepo from "../repository/loyaltyrequest.repository.js";
 import { logger } from "../utils/logger.js";
+import { emitNewLoyaltyRequest } from "../websocket/loyaltySocket.js";
 
 /**
  * Customer joins a business
@@ -53,8 +55,8 @@ export const joinBusiness = async (customerId, businessId) => {
     customerId,
     status: "pending", // Default status
     points: 0,
-    stamps: 0,
     tier: "basic",
+    stampCards: [],
     joinedAt: new Date(),
   });
 
@@ -68,6 +70,125 @@ export const joinBusiness = async (customerId, businessId) => {
     success: true,
     data: membership,
     message: "Membership request submitted. Awaiting business approval.",
+  };
+};
+
+/**
+ * QR SCAN: Create quick loyalty request with WebSocket notification
+ * Triggered when: Customer scans merchant QR code
+ * Result: Pending request created, merchant notified in real-time
+ */
+export const createQuickLoyaltyRequestViaQR = async (customerId, businessId) => {
+  // Verify business exists
+  const business = await businessRepo.findBusinessById(businessId);
+  if (!business) {
+    const error = new Error("Business not found");
+    error.status = 404;
+    logger("businesscustomer", "QR scan failed - business not found", {
+      customerId,
+      businessId,
+    });
+    throw error;
+  }
+
+  // Verify customer exists
+  const customer = await customerRepo.findCustomerById(customerId);
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.status = 404;
+    logger("businesscustomer", "QR scan failed - customer not found", {
+      customerId,
+      businessId,
+    });
+    throw error;
+  }
+
+  // Check or create BusinessCustomer relationship
+  let businessCustomer = await bcRepo.findByBusinessAndCustomer(businessId, customerId);
+
+  if (!businessCustomer) {
+    // Auto-create pending membership
+    businessCustomer = await bcRepo.createBusinessCustomer({
+      businessId,
+      customerId,
+      status: "pending",
+      points: 0,
+      tier: "basic",
+      stampCards: [],
+      joinedAt: new Date(),
+    });
+
+    logger("businesscustomer", "Auto-created membership from QR scan", {
+      customerId,
+      businessId,
+      membershipId: businessCustomer._id,
+    });
+  }
+
+  // Check if customer is blocked or rejected
+  if (businessCustomer.status === "rejected" || businessCustomer.status === "blocked") {
+    const error = new Error(`Cannot create request: membership is ${businessCustomer.status}`);
+    error.status = 403;
+    logger("businesscustomer", "QR scan rejected - invalid membership status", {
+      customerId,
+      businessId,
+      status: businessCustomer.status,
+    });
+    throw error;
+  }
+
+  // Create pending loyalty request (no products yet)
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  const loyaltyRequest = await loyaltyReqRepo.createLoyaltyRequest({
+    businessCustomerId: businessCustomer._id,
+    products: [],
+    amountSpent: null,
+    pointsAwarded: null,
+    stampsAwarded: null,
+    status: "pending",
+    expiresAt,
+  });
+
+  logger("businesscustomer", "Loyalty request created via QR scan", {
+    customerId,
+    businessId,
+    requestId: loyaltyRequest._id,
+  });
+
+  // ========== WEBSOCKET EMISSION ==========
+  // Notify all connected merchants of this business in real-time
+  if (global.io) {
+    emitNewLoyaltyRequest(global.io, businessId, {
+      requestId: loyaltyRequest._id.toString(),
+      businessCustomerId: businessCustomer._id.toString(),
+      customerId: customer._id.toString(),
+      customerEmail: customer.email,
+      customerName: customer.name,
+      currentPoints: businessCustomer.points,
+      currentTier: businessCustomer.tier,
+      stampCards: businessCustomer.stampCards,
+      expiresAt: expiresAt.toISOString(),
+    });
+
+    logger("websocket", "QR request notification sent to merchants", {
+      businessId,
+      requestId: loyaltyRequest._id,
+    });
+  }
+
+  return {
+    success: true,
+    data: {
+      requestId: loyaltyRequest._id.toString(),
+      businessCustomerId: businessCustomer._id.toString(),
+      customerId,
+      businessId,
+      status: "pending",
+      expiresAt: expiresAt.toISOString(),
+      message: "Loyalty request sent to merchant",
+    },
+    message: "QR scan successful. Request sent to merchant dashboard.",
   };
 };
 
@@ -320,5 +441,61 @@ export const rejectMembership = async (businessId, membershipId) => {
     success: true,
     data: updated,
     message: "Membership rejected successfully",
+  };
+};
+
+/**
+ * Get customer dashboard (all loyalty stats for a customer with a specific business)
+ */
+export const getCustomerDashboard = async (customerId, businessCustomerId) => {
+  const membership = await bcRepo.findById(businessCustomerId);
+
+  if (!membership) {
+    const error = new Error("Membership not found");
+    error.status = 404;
+    logger("businesscustomer", "Dashboard fetch failed - membership not found", {
+      customerId,
+      businessCustomerId,
+    });
+    throw error;
+  }
+
+  // Verify ownership
+  if (membership.customerId._id.toString() !== customerId) {
+    const error = new Error("Forbidden - not your membership");
+    error.status = 403;
+    logger("businesscustomer", "Unauthorized dashboard access", {
+      customerId,
+      businessCustomerId,
+    });
+    throw error;
+  }
+
+  // Get all loyalty requests for this membership
+  const { loyaltyReqRepo } = await import("../repository/loyaltyrequest.repository.js");
+  const loyaltyStats = await loyaltyReqRepo.getLoyaltyRequestStats(businessCustomerId);
+
+  logger("businesscustomer", "Customer dashboard retrieved", {
+    customerId,
+    businessCustomerId,
+  });
+
+  return {
+    success: true,
+    data: {
+      membership: {
+        businessId: membership.businessId._id,
+        businessName: membership.businessId.name,
+        status: membership.status,
+        joinedAt: membership.joinedAt,
+      },
+      loyalty: {
+        points: membership.points,
+        tier: membership.tier,
+        stampCards: membership.stampCards,
+      },
+      stats: loyaltyStats,
+    },
+    message: "Dashboard fetched successfully",
   };
 };

@@ -4,6 +4,8 @@ import businessRoutes from "./business.routes.js";
 import customerRoutes from "./customer.routes.js";
 import userRoutes from "./user.routes.js";
 import bcRoutes from "./businesscustomer.routes.js";
+import productRoutes from "./product.routes.js";
+import loyaltyRoutes from "./loyaltyrequest.routes.js";
 
 const routes = Router();
 
@@ -12,5 +14,7 @@ routes.use("/businesses", businessRoutes);
 routes.use("/customers", customerRoutes);
 routes.use("/users", userRoutes);
 routes.use("/memberships", bcRoutes);
+routes.use("/products", productRoutes);
+routes.use("/loyalty-requests", loyaltyRoutes);
 
 export default routes;

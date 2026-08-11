@@ -22,6 +22,13 @@ bcRoutes.get(
 );
 
 bcRoutes.get(
+  "/:id/dashboard",
+  auth,
+  requireRole("customer"),
+  bcController.getCustomerDashboard,
+);
+
+bcRoutes.get(
   "/",
   auth,
   requireRole("customer"),

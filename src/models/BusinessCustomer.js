@@ -1,5 +1,26 @@
 import mongoose from "mongoose";
 
+const StampCardSchema = new mongoose.Schema(
+  {
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    completedCards: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+  },
+  { _id: false },
+);
+
 const BusinessCustomerSchema = new mongoose.Schema(
   {
     businessId: {
@@ -20,18 +41,20 @@ const BusinessCustomerSchema = new mongoose.Schema(
     points: {
       type: Number,
       default: 0,
-    },
-    stamps: {
-      type: Number,
-      default: 0,
+      min: 0,
     },
     tier: {
       type: String,
+      enum: ["basic", "silver", "gold", "platinum"],
       default: "basic",
-      // Can be extended: basic, silver, gold, platinum
+    },
+    stampCards: {
+      type: [StampCardSchema],
+      default: [],
     },
     joinedAt: {
       type: Date,
+      default: Date.now,
     },
   },
   { timestamps: true },

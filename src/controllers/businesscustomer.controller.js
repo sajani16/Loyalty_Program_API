@@ -166,3 +166,25 @@ export const rejectMembership = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * GET /api/memberships/:id/dashboard
+ * Get customer dashboard for a specific membership
+ */
+export const getCustomerDashboard = async (req, res, next) => {
+  try {
+    const customerId = req.user.id;
+    const { id: businessCustomerId } = req.params;
+
+    const result = await bcService.getCustomerDashboard(customerId, businessCustomerId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+};

@@ -1,32 +1,27 @@
 import "dotenv/config";
-import express, { Router } from "express";
+import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
-// import { logger } from "./utils/logger.js";
+import http from "http";
 import connectDB from "./config/database.js";
 import routes from "./routes/index.js";
 import errorHandler from "./middlewares/errorHandler.js";
-import http from "http";
-// import { initSocket } from "./src/sockets/notification.socket.js";
+import { initializeLoyaltySocket } from "./websocket/loyaltySocket.js";
 import "./config/firebase.js";
-// import  seedDefaults  from "./src/config/seed.js";
 
 const app = express();
-// const httpServer = http.createServer(app);
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 // Connect DB
 connectDB();
-// seedDefaults();
 
-// Middlewares
-
+// ============ MIDDLEWARES ==========
 app.use(
   express.json({
     limit: "50mb",
     verify: (req, _res, buf) => {
-      // Store raw body for webhook signature verification
       if (req.url?.includes("/webhooks/")) {
         req.rawBody = buf.toString();
       }
@@ -47,23 +42,23 @@ const limiter = rateLimit({
 app.use(limiter);
 app.use(morgan("dev"));
 
-// Routes
+// ============ ROUTES ==========
 app.use("/api", routes);
 app.get("/", (req, res) =>
   res.json({ ok: true, message: "All system functional" }),
 );
-// Error handler
+
+// ============ SOCKET.IO INITIALIZATION ==========
+const io = initializeLoyaltySocket(httpServer);
+
+// Make io available globally for services
+global.io = io;
+
+// ============ ERROR HANDLER ==========
 app.use(errorHandler);
 
-app.listen(PORT, async () => {
+// ============ SERVER START ==========
+httpServer.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket available at ws://localhost:${PORT}`);
 });
-
-// initSocket(httpServer, {
-//   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
-//   redisUrl: process.env.REDIS_URL,
-// });
-
-// httpServer.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
