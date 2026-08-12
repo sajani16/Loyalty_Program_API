@@ -4,7 +4,10 @@ import * as businessRepo from "../repository/business.repository.js";
 import * as customerRepo from "../repository/customer.repository.js";
 import * as productRepo from "../repository/product.repository.js";
 import { logger } from "../utils/logger.js";
-import { emitRequestCompleted, emitRequestRejected } from "../websocket/loyaltySocket.js";
+import {
+  emitRequestCompleted,
+  emitRequestRejected,
+} from "../websocket/loyaltySocket.js";
 
 /**
  * Create a quick loyalty request via QR scan (Customer initiates)
@@ -37,7 +40,10 @@ export const createQuickLoyaltyRequest = async (customerId, businessId) => {
   }
 
   // Check or create BusinessCustomer relationship
-  let businessCustomer = await bcRepo.findByBusinessAndCustomer(businessId, customerId);
+  let businessCustomer = await bcRepo.findByBusinessAndCustomer(
+    businessId,
+    customerId,
+  );
 
   if (!businessCustomer) {
     // Auto-create pending membership if it doesn't exist
@@ -58,14 +64,23 @@ export const createQuickLoyaltyRequest = async (customerId, businessId) => {
     });
   }
 
-  if (businessCustomer.status === "rejected" || businessCustomer.status === "blocked") {
-    const error = new Error(`Cannot create request: membership is ${businessCustomer.status}`);
+  if (
+    businessCustomer.status === "rejected" ||
+    businessCustomer.status === "blocked"
+  ) {
+    const error = new Error(
+      `Cannot create request: membership is ${businessCustomer.status}`,
+    );
     error.status = 403;
-    logger("loyaltyrequest", "Quick request rejected - membership status invalid", {
-      customerId,
-      businessId,
-      status: businessCustomer.status,
-    });
+    logger(
+      "loyaltyrequest",
+      "Quick request rejected - membership status invalid",
+      {
+        customerId,
+        businessId,
+        status: businessCustomer.status,
+      },
+    );
     throw error;
   }
 
@@ -108,7 +123,11 @@ export const createQuickLoyaltyRequest = async (customerId, businessId) => {
 /**
  * Merchant adds products to a pending loyalty request
  */
-export const addProductsToLoyaltyRequest = async (businessId, requestId, productsData) => {
+export const addProductsToLoyaltyRequest = async (
+  businessId,
+  requestId,
+  productsData,
+) => {
   const request = await loyaltyReqRepo.findLoyaltyRequestById(requestId);
 
   if (!request) {
@@ -118,7 +137,9 @@ export const addProductsToLoyaltyRequest = async (businessId, requestId, product
   }
 
   if (request.status !== "pending") {
-    const error = new Error(`Cannot add products to a ${request.status} request`);
+    const error = new Error(
+      `Cannot add products to a ${request.status} request`,
+    );
     error.status = 400;
     throw error;
   }
@@ -137,7 +158,9 @@ export const addProductsToLoyaltyRequest = async (businessId, requestId, product
   // Validate products
   let totalAmount = 0;
   for (const product of productsData) {
-    const existingProduct = await productRepo.findProductById(product.productId);
+    const existingProduct = await productRepo.findProductById(
+      product.productId,
+    );
     if (!existingProduct) {
       const error = new Error(`Product ${product.productId} not found`);
       error.status = 404;
@@ -145,7 +168,9 @@ export const addProductsToLoyaltyRequest = async (businessId, requestId, product
     }
 
     if (existingProduct.businessId.toString() !== businessId) {
-      const error = new Error(`Product ${product.productId} does not belong to your business`);
+      const error = new Error(
+        `Product ${product.productId} does not belong to your business`,
+      );
       error.status = 403;
       throw error;
     }
@@ -195,7 +220,12 @@ export const getLoyaltyRequest = async (requestId) => {
 /**
  * Get all loyalty requests for a business customer (Customer view)
  */
-export const getCustomerLoyaltyRequests = async (businessCustomerId, status, page, limit) => {
+export const getCustomerLoyaltyRequests = async (
+  businessCustomerId,
+  status,
+  page,
+  limit,
+) => {
   const filter = {};
   if (status) {
     filter.status = status;
@@ -207,11 +237,12 @@ export const getCustomerLoyaltyRequests = async (businessCustomerId, status, pag
     sort: { createdAt: -1 },
   };
 
-  const result = await loyaltyReqRepo.findLoyaltyRequestsByBusinessCustomerPaginated(
-    businessCustomerId,
-    filter,
-    options,
-  );
+  const result =
+    await loyaltyReqRepo.findLoyaltyRequestsByBusinessCustomerPaginated(
+      businessCustomerId,
+      filter,
+      options,
+    );
 
   logger("loyaltyrequest", "Customer loyalty requests retrieved", {
     businessCustomerId,
@@ -234,7 +265,12 @@ export const getCustomerLoyaltyRequests = async (businessCustomerId, status, pag
 /**
  * Get all loyalty requests for a business (Business view)
  */
-export const getBusinessLoyaltyRequests = async (businessId, status, page, limit) => {
+export const getBusinessLoyaltyRequests = async (
+  businessId,
+  status,
+  page,
+  limit,
+) => {
   const filter = {};
   if (status) {
     filter.status = status;
@@ -274,7 +310,11 @@ export const getBusinessLoyaltyRequests = async (businessId, status, page, limit
  * Complete a loyalty request (Business approves purchase and awards loyalty)
  * Handles both STAMP-BASED and POINT-BASED loyalty types
  */
-export const completeLoyaltyRequest = async (businessId, requestId, completionData) => {
+export const completeLoyaltyRequest = async (
+  businessId,
+  requestId,
+  completionData,
+) => {
   const request = await loyaltyReqRepo.findLoyaltyRequestById(requestId);
 
   if (!request) {
@@ -313,6 +353,20 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
     throw error;
   }
 
+  if (businessCustomer.status === "rejected" || businessCustomer.status === "blocked") {
+    const error = new Error(
+      `Membership cannot be completed because it is ${businessCustomer.status}`,
+    );
+    error.status = 403;
+    logger("loyaltyrequest", "Completion blocked - membership restricted", {
+      businessId,
+      requestId,
+      businessCustomerId,
+      membershipStatus: businessCustomer.status,
+    });
+    throw error;
+  }
+
   // ========== STAMP-BASED LOYALTY ==========
   if (completionData.type === "stamp" && completionData.products) {
     // Merchant selected products by quantity (stamp tracking)
@@ -329,7 +383,9 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
 
       // Verify product is stamp-eligible
       if (!productData.stampEligible) {
-        const error = new Error(`Product ${product.productId} is not stamp-eligible`);
+        const error = new Error(
+          `Product ${product.productId} is not stamp-eligible`,
+        );
         error.status = 400;
         throw error;
       }
@@ -352,8 +408,13 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
       stampCard.progress += product.quantity;
 
       // Check if stamp target is reached
-      if (productData.stampTarget && stampCard.progress >= productData.stampTarget) {
-        const completedCount = Math.floor(stampCard.progress / productData.stampTarget);
+      if (
+        productData.stampTarget &&
+        stampCard.progress >= productData.stampTarget
+      ) {
+        const completedCount = Math.floor(
+          stampCard.progress / productData.stampTarget,
+        );
         stampCard.completedCards = completedCount;
         stampsAwarded += completedCount;
 
@@ -372,7 +433,10 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
   }
 
   // ========== POINT-BASED LOYALTY ==========
-  else if (completionData.type === "point" && completionData.amountSpent !== undefined) {
+  else if (
+    completionData.type === "point" &&
+    completionData.amountSpent !== undefined
+  ) {
     // Merchant entered amount → calculate points
     pointsAwarded = Math.floor(completionData.amountSpent);
     stampsAwarded = 0;
@@ -383,7 +447,9 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
       pointsAwarded,
     });
   } else {
-    const error = new Error("Invalid completion data: specify type (stamp or point) and required fields");
+    const error = new Error(
+      "Invalid completion data: specify type (stamp or point) and required fields",
+    );
     error.status = 400;
     throw error;
   }
@@ -392,7 +458,10 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
   const newPoints = businessCustomer.points + pointsAwarded;
   const newTier = calculateTier(newPoints);
 
+  const membershipStatus = "active";
+
   await bcRepo.updateBusinessCustomer(businessCustomerId, {
+    status: membershipStatus,
     points: newPoints,
     tier: newTier,
     stampCards: updatedStampCards,
@@ -452,14 +521,17 @@ export const completeLoyaltyRequest = async (businessId, requestId, completionDa
       status: "completed",
       type: completionData.type,
       pointsAwarded,
+        membershipStatus,
       stampsAwarded,
       customerUpdate: {
         newPoints,
         newTier,
         stampCards: updatedStampCards,
       },
+          status: membershipStatus,
     },
-    message: "Loyalty request completed. Points and stamps awarded successfully.",
+    message:
+      "Loyalty request completed. Points and stamps awarded successfully.",
   };
 };
 
@@ -521,7 +593,12 @@ export const rejectLoyaltyRequest = async (businessId, requestId, reason) => {
   // ========== WEBSOCKET EMISSION ==========
   // Notify all connected merchants that this request is rejected
   if (global.io) {
-    emitRequestRejected(global.io, businessId, requestId.toString(), reason || "");
+    emitRequestRejected(
+      global.io,
+      businessId,
+      requestId.toString(),
+      reason || "",
+    );
 
     logger("websocket", "Request rejection notification sent", {
       businessId,
@@ -541,7 +618,8 @@ export const rejectLoyaltyRequest = async (businessId, requestId, reason) => {
  */
 export const getLoyaltyStats = async (businessCustomerId) => {
   const stats = await loyaltyReqRepo.getLoyaltyRequestStats(businessCustomerId);
-  const totals = await loyaltyReqRepo.getTotalPointsAndStamps(businessCustomerId);
+  const totals =
+    await loyaltyReqRepo.getTotalPointsAndStamps(businessCustomerId);
 
   logger("loyaltyrequest", "Loyalty stats retrieved", {
     businessCustomerId,

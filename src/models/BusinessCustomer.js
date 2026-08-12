@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const StampCardSchema = new mongoose.Schema(
   {
@@ -60,10 +61,12 @@ const BusinessCustomerSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+BusinessCustomerSchema.plugin(mongoosePaginate);
+
 // Compound unique index: A customer cannot belong to the same business more than once
 BusinessCustomerSchema.index(
   { businessId: 1, customerId: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 export default mongoose.model("BusinessCustomer", BusinessCustomerSchema);

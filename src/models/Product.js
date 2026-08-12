@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const ProductSchema = new mongoose.Schema(
   {
@@ -39,6 +40,8 @@ const ProductSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+ProductSchema.plugin(mongoosePaginate);
 
 // Compound unique index: Business cannot have duplicate product names
 ProductSchema.index({ businessId: 1, name: 1 }, { unique: true });

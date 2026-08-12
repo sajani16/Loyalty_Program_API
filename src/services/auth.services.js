@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import * as customerRepo from "../repository/customer.repository.js";
 import * as businessRepo from "../repository/business.repository.js";
+import * as roleRepo from "../repository/role.repository.js";
 import { logger } from "../utils/logger.js";
 import { sendOTPEmailNow } from "../services/email.service.js";
 import { OTP_CONFIG } from "../config/otp.js";
@@ -19,16 +20,12 @@ const RESET_TOKEN_TTL_MINUTES =
  * Register a new user (customer or business)
  * Creates the appropriate document based on userType
  */
-export const register = async ({
-  userType,
-  name,
-  email,
-  password,
-  phone,
-}) => {
+export const register = async ({ userType, name, email, password, phone }) => {
   // Validate userType
   if (!["customer", "business"].includes(userType)) {
-    const error = new Error("Invalid userType. Must be 'customer' or 'business'");
+    const error = new Error(
+      "Invalid userType. Must be 'customer' or 'business'",
+    );
     error.status = 400;
     throw error;
   }
@@ -36,12 +33,32 @@ export const register = async ({
   // Get the appropriate repository based on userType
   const repo = userType === "customer" ? customerRepo : businessRepo;
 
+  const defaultRoleName = userType === "customer" ? "customer" : "business";
+  const defaultRole = await roleRepo.findRoleByName(defaultRoleName);
+  if (!defaultRole) {
+    const error = new Error(
+      `Default ${defaultRoleName} role not found. Run the role seed first.`,
+    );
+    error.status = 400;
+    logger("auth", "Registration failed - default role missing", {
+      email,
+      userType,
+      defaultRoleName,
+    });
+    throw error;
+  }
+
   // Check if email already exists
   const existingUser = await repo.findUserByEmail(email);
   if (existingUser) {
-    const error = new Error("Email is already registered. Please use a different email or login.");
+    const error = new Error(
+      "Email is already registered. Please use a different email or login.",
+    );
     error.status = 409;
-    logger("auth", "Registration failed - email already exists", { email, userType });
+    logger("auth", "Registration failed - email already exists", {
+      email,
+      userType,
+    });
     throw error;
   }
 
@@ -55,15 +72,17 @@ export const register = async ({
   logger("auth", "OTP generated for registration", { email, userType, otp });
 
   // Create user
-  const createFunc = userType === "customer" 
-    ? customerRepo.createCustomer 
-    : businessRepo.createBusiness;
+  const createFunc =
+    userType === "customer"
+      ? customerRepo.createCustomer
+      : businessRepo.createBusiness;
 
   const created = await createFunc({
     name,
     email,
     password: hashedPassword,
     phone: phone && phone.trim() ? phone.trim() : undefined,
+    role: defaultRole._id,
     otp,
     otpExpires,
     isVerified: false,
@@ -92,7 +111,8 @@ export const register = async ({
   return {
     success: true,
     data: { id: created._id, email: created.email, name: created.name },
-    message: "Registration successful. Please verify your email with the OTP sent.",
+    message:
+      "Registration successful. Please verify your email with the OTP sent.",
   };
 };
 
@@ -151,7 +171,7 @@ export const login = async ({ email, password }) => {
   const token = jwt.sign(
     { id: user._id.toString(), userType, email: user.email },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN },
   );
 
   const userData = {
@@ -219,7 +239,10 @@ export const verifyOtp = async ({ email, otp }) => {
   if (user.otp !== otp) {
     const error = new Error("Invalid OTP");
     error.status = 400;
-    logger("auth", "OTP verification failed - invalid OTP", { email, userType });
+    logger("auth", "OTP verification failed - invalid OTP", {
+      email,
+      userType,
+    });
     throw error;
   }
 
@@ -381,21 +404,30 @@ export const verifyResetOtp = async ({ email, otp }) => {
   if (!user.otp || !user.otpExpires) {
     const error = new Error("No OTP found. Please request a new one.");
     error.status = 400;
-    logger("auth", "Reset OTP verification failed - no OTP", { email, userType });
+    logger("auth", "Reset OTP verification failed - no OTP", {
+      email,
+      userType,
+    });
     throw error;
   }
 
   if (new Date() > user.otpExpires) {
     const error = new Error("OTP has expired. Please request a new one.");
     error.status = 400;
-    logger("auth", "Reset OTP verification failed - expired", { email, userType });
+    logger("auth", "Reset OTP verification failed - expired", {
+      email,
+      userType,
+    });
     throw error;
   }
 
   if (user.otp !== otp) {
     const error = new Error("Invalid OTP");
     error.status = 400;
-    logger("auth", "Reset OTP verification failed - invalid OTP", { email, userType });
+    logger("auth", "Reset OTP verification failed - invalid OTP", {
+      email,
+      userType,
+    });
     throw error;
   }
 
@@ -406,7 +438,7 @@ export const verifyResetOtp = async ({ email, otp }) => {
     .update(resetToken)
     .digest("hex");
   const resetPasswordExpires = new Date(
-    Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000
+    Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000,
   );
 
   // Update user
@@ -511,10 +543,13 @@ export const refreshAccessToken = async ({ refreshToken }) => {
   const newAccessToken = jwt.sign(
     { id: user._id.toString(), userType: payload.userType, email: user.email },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN },
   );
 
-  logger("auth", "Access token refreshed", { userId: user._id, userType: payload.userType });
+  logger("auth", "Access token refreshed", {
+    userId: user._id,
+    userType: payload.userType,
+  });
 
   return {
     success: true,
@@ -533,7 +568,7 @@ export const refreshAccessToken = async ({ refreshToken }) => {
 export const logout = async ({ userId, userType }) => {
   // With JWT, the token is invalidated on the client by removing it
   // In a production system, you would add the token to a blacklist (Redis, database, etc.)
-  
+
   logger("auth", "User logged out", { userId, userType });
 
   return {

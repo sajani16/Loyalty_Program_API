@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const LoyaltyRequestProductSchema = new mongoose.Schema(
   {
@@ -75,5 +76,7 @@ const LoyaltyRequestSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+LoyaltyRequestSchema.plugin(mongoosePaginate);
 
 export default mongoose.model("LoyaltyRequest", LoyaltyRequestSchema);
