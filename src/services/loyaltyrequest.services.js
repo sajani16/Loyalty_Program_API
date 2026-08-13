@@ -97,6 +97,13 @@ export const createQuickLoyaltyRequest = async (customerId, businessId) => {
     status: "pending",
     expiresAt,
   });
+  // Notify merchant after request is successfully created
+  emitNewLoyaltyRequest(businessId, {
+    requestId: loyaltyRequest._id,
+    customerId,
+    customerName: customer.name,
+    expiresAt,
+  });
 
   logger("loyaltyrequest", "Quick loyalty request created via QR scan", {
     customerId,
@@ -353,7 +360,10 @@ export const completeLoyaltyRequest = async (
     throw error;
   }
 
-  if (businessCustomer.status === "rejected" || businessCustomer.status === "blocked") {
+  if (
+    businessCustomer.status === "rejected" ||
+    businessCustomer.status === "blocked"
+  ) {
     const error = new Error(
       `Membership cannot be completed because it is ${businessCustomer.status}`,
     );
@@ -484,7 +494,13 @@ export const completeLoyaltyRequest = async (
     products: completionData.products || request.products,
     completedAt: new Date(),
   });
-
+  // Notify customer after request is successfully completed
+  emitRequestCompleted(businessCustomer.customerId, {
+    requestId: updated._id,
+    points: pointsAwarded,
+    stamps: stampsAwarded,
+    reward: null,
+  });
   logger("loyaltyrequest", "Loyalty request completed", {
     businessId,
     requestId,
@@ -493,27 +509,6 @@ export const completeLoyaltyRequest = async (
     stampsAwarded,
   });
 
-  // ========== WEBSOCKET EMISSION ==========
-  // Notify all connected merchants that this request is completed
-  if (global.io) {
-    emitRequestCompleted(global.io, businessId, {
-      requestId: updated._id.toString(),
-      type: completionData.type,
-      pointsAwarded,
-      stampsAwarded,
-      customerUpdate: {
-        newPoints,
-        newTier,
-        stampCards: updatedStampCards,
-      },
-    });
-
-    logger("websocket", "Request completion notification sent", {
-      businessId,
-      requestId: updated._id,
-    });
-  }
-
   return {
     success: true,
     data: {
@@ -521,28 +516,20 @@ export const completeLoyaltyRequest = async (
       status: "completed",
       type: completionData.type,
       pointsAwarded,
-        membershipStatus,
+      membershipStatus,
       stampsAwarded,
       customerUpdate: {
         newPoints,
         newTier,
         stampCards: updatedStampCards,
       },
-          status: membershipStatus,
+      status: membershipStatus,
     },
     message:
       "Loyalty request completed. Points and stamps awarded successfully.",
   };
 };
 
-/**
- * Calculate customer tier based on points
- * Tier progression:
- * - basic: 0-999 points
- * - silver: 1000-4999 points
- * - gold: 5000-9999 points
- * - platinum: 10000+ points
- */
 const calculateTier = (points) => {
   if (points >= 10000) return "platinum";
   if (points >= 5000) return "gold";
@@ -583,28 +570,15 @@ export const rejectLoyaltyRequest = async (businessId, requestId, reason) => {
     status: "rejected",
     rejectedAt: new Date(),
   });
-
+  emitRequestRejected(request.businessCustomerId.customerId, {
+    requestId: updated._id,
+    reason: reason || null,
+  });
   logger("loyaltyrequest", "Loyalty request rejected", {
     businessId,
     requestId,
     reason,
   });
-
-  // ========== WEBSOCKET EMISSION ==========
-  // Notify all connected merchants that this request is rejected
-  if (global.io) {
-    emitRequestRejected(
-      global.io,
-      businessId,
-      requestId.toString(),
-      reason || "",
-    );
-
-    logger("websocket", "Request rejection notification sent", {
-      businessId,
-      requestId,
-    });
-  }
 
   return {
     success: true,

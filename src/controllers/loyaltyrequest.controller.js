@@ -2,17 +2,18 @@ import * as loyaltyService from "../services/loyaltyrequest.services.js";
 import * as bcService from "../services/businesscustomer.services.js";
 import { validateLoyaltyRequestInput } from "../validations/loyaltyrequest.validations.js";
 
-/**
- * POST /api/loyalty-requests/qr-scan/:businessId
- * QR SCAN: Create a quick loyalty request (Customer initiates via QR)
- * WebSocket will notify merchants in real-time
- */
+
+
 export const createQuickLoyaltyRequestViaQR = async (req, res, next) => {
   try {
     const customerId = req.user.id;
     const { businessId } = req.params;
 
-    const result = await bcService.createQuickLoyaltyRequestViaQR(customerId, businessId);
+    const result = await bcService.createQuickLoyaltyRequestViaQR(
+      customerId,
+      businessId,
+    );
+    
     res.status(201).json(result);
   } catch (err) {
     if (err.status) {
@@ -38,16 +39,23 @@ export const addProductsToLoyaltyRequest = async (req, res, next) => {
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Products array is required and must contain at least one product",
+        message:
+          "Products array is required and must contain at least one product",
       });
     }
 
     // Validate each product
     for (const product of products) {
-      if (!product.productId || !product.productName || product.unitPrice === undefined || !product.quantity) {
+      if (
+        !product.productId ||
+        !product.productName ||
+        product.unitPrice === undefined ||
+        !product.quantity
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Each product must have: productId, productName, unitPrice, quantity",
+          message:
+            "Each product must have: productId, productName, unitPrice, quantity",
         });
       }
     }
@@ -170,10 +178,10 @@ export const getBusinessLoyaltyRequests = async (req, res, next) => {
 /**
  * PATCH /api/loyalty-requests/:id/complete
  * Complete a loyalty request - Handles both STAMP and POINT based loyalty
- * 
+ *
  * For STAMP-BASED:
  * Body: { type: "stamp", products: [ { productId, quantity }, ... ], amountSpent?: number }
- * 
+ *
  * For POINT-BASED:
  * Body: { type: "point", amountSpent: number }
  */
@@ -195,7 +203,8 @@ export const completeLoyaltyRequest = async (req, res, next) => {
       if (!Array.isArray(products) || products.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "For stamp-based: products array is required with at least one item",
+          message:
+            "For stamp-based: products array is required with at least one item",
         });
       }
       for (const product of products) {
@@ -212,12 +221,19 @@ export const completeLoyaltyRequest = async (req, res, next) => {
       if (amountSpent === undefined || typeof amountSpent !== "number") {
         return res.status(400).json({
           success: false,
-          message: "For point-based: amountSpent is required and must be a number",
+          message:
+            "For point-based: amountSpent is required and must be a number",
         });
       }
     }
 
-    const result = await loyaltyService.completeLoyaltyRequest(businessId, id, req.body);
+    const result = await loyaltyService.completeLoyaltyRequest(
+      businessId,
+      id,
+      req.body,
+    );
+    // Notify customer after successful DB update
+    emitRequestCompleted(getIo(), result.customerId, result);
     res.json(result);
   } catch (err) {
     if (err.status) {
@@ -240,7 +256,11 @@ export const rejectLoyaltyRequest = async (req, res, next) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const result = await loyaltyService.rejectLoyaltyRequest(businessId, id, reason);
+    const result = await loyaltyService.rejectLoyaltyRequest(
+      businessId,
+      id,
+      reason,
+    );
     res.json(result);
   } catch (err) {
     if (err.status) {

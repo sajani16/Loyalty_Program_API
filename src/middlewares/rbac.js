@@ -1,66 +1,71 @@
 import { logger } from "../utils/logger.js";
 
-/**
- * RBAC Middleware - checks if user has required permission
- * Usage: authorize("permission:action")(req, res, next)
- */
-export const authorize = (...requiredPermissions) => {
-  return async (req, res, next) => {
-    try {
-      const user = req.user;
+//  Check if the authenticated user has the required permission later if we break business into staff manager admin
 
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: "Unauthorized",
-        });
-      }
+// export const authorize = (...requiredPermissions) => {
+//   return (req, res, next) => {
+//     try {
+//       const user = req.user;
 
-      // Check if user has role populated
-      if (!user.role) {
-        logger("rbac", "User has no role assigned", { userId: user.id });
-        return res.status(403).json({
-          success: false,
-          message: "Forbidden - no role assigned",
-        });
-      }
+//       if (!user) {
+//         return res.status(401).json({
+//           success: false,
+//           message: "Unauthorized",
+//         });
+//       }
 
-      // Get user's permissions from role
-      const userPermissions = user.role.permissions || [];
+//       // Superadmin bypasses all permission checks
+//       if (user.role?.name === "superadmin" || user.superadmin === true) {
+//         return next();
+//       }
 
-      // Check if user has at least one of the required permissions
-      const hasPermission = requiredPermissions.some((permission) =>
-        userPermissions.includes(permission),
-      );
+//       if (!user.role) {
+//         logger("rbac", "User has no role assigned", {
+//           userId: user.id,
+//         });
 
-      if (!hasPermission) {
-        logger("rbac", "Permission denied", {
-          userId: user.id,
-          required: requiredPermissions,
-          userPermissions,
-        });
-        return res.status(403).json({
-          success: false,
-          message: "Forbidden - insufficient permissions",
-        });
-      }
+//         return res.status(403).json({
+//           success: false,
+//           message: "Forbidden - no role assigned",
+//         });
+//       }
 
-      next();
-    } catch (err) {
-      logger("rbac", "RBAC check failed", { error: err.message });
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
-    }
-  };
-};
+//       const userPermissions = user.role.permissions || [];
 
-/**
- * Check if user has a specific role
- */
+//       const hasPermission = requiredPermissions.some((permission) =>
+//         userPermissions.includes(permission),
+//       );
+
+//       if (!hasPermission) {
+//         logger("rbac", "Permission denied", {
+//           userId: user.id,
+//           role: user.role.name,
+//           requiredPermissions,
+//         });
+
+//         return res.status(403).json({
+//           success: false,
+//           message: "Forbidden - insufficient permissions",
+//         });
+//       }
+
+//       next();
+//     } catch (error) {
+//       logger("rbac", "Permission check failed", {
+//         error: error.message,
+//       });
+
+//       return res.status(500).json({
+//         success: false,
+//         message: "Internal server error",
+//       });
+//     }
+//   };
+// };
+
+// Check if the authenticated user has one of the allowed role same as checking userType
 export const requireRole = (...allowedRoles) => {
-  return async (req, res, next) => {
+  return (req, res, next) => {
     try {
       const user = req.user;
 
@@ -71,7 +76,11 @@ export const requireRole = (...allowedRoles) => {
         });
       }
 
-      // Get user's role name
+      // Superadmin bypasses all role checks
+      if (user.role?.name === "superadmin" || user.superadmin === true) {
+        return next();
+      }
+
       const userRole = user.role?.name;
 
       if (!userRole || !allowedRoles.includes(userRole)) {
@@ -80,6 +89,7 @@ export const requireRole = (...allowedRoles) => {
           userRole,
           allowedRoles,
         });
+
         return res.status(403).json({
           success: false,
           message: `Forbidden - requires one of: ${allowedRoles.join(", ")}`,
@@ -87,8 +97,11 @@ export const requireRole = (...allowedRoles) => {
       }
 
       next();
-    } catch (err) {
-      logger("rbac", "Role check error", { error: err.message });
+    } catch (error) {
+      logger("rbac", "Role check failed", {
+        error: error.message,
+      });
+
       return res.status(500).json({
         success: false,
         message: "Internal server error",

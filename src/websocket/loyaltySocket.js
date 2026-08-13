@@ -1,14 +1,15 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { logger } from "../utils/logger.js";
+import Business from "../models/Business.js";
 
-/**
- * Initialize Socket.IO with standard practices
- */
+let io;
+
 export const initializeLoyaltySocket = (httpServer) => {
-  const io = new Server(httpServer, {
+  if (io) return io;
+  io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || "*",
+      origin: process.env.CORS_ORIGIN,
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -18,237 +19,157 @@ export const initializeLoyaltySocket = (httpServer) => {
     reconnectionDelayMax: 5000,
     reconnectionAttempts: 5,
   });
+  //namespacing
+  const loyaltyNS = io.of("/loyalty");
 
-  // ============ MIDDLEWARE: Authentication ==========
-  io.use((socket, next) => {
+  //auth middleware to authenticate create socket server and attach user to socket
+  loyaltyNS.use((socket, next) => {
     try {
-      const token = socket.handshake.auth.token;
+      const token = socket.handshake.auth?.token;
 
       if (!token) {
-        logger("websocket", "Connection rejected - no token", {
-          socketId: socket.id,
-        });
         return next(new Error("Authentication token required"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      socket.userId = decoded.id;
-      socket.userType = decoded.userType;
-      socket.email = decoded.email;
-      socket.role = decoded.role;
-
-      logger("websocket", "Socket authenticated", {
-        socketId: socket.id,
-        userId: socket.userId,
-        userType: socket.userType,
-      });
+      socket.user = {
+        userId: decoded.sub || decoded.id,
+        email: decoded.email,
+        role: decoded.role,
+        userType: decoded.userType,
+      };
 
       next();
-    } catch (err) {
-      logger("websocket", "Socket authentication failed", {
-        socketId: socket.id,
-        error: err.message,
-      });
+    } catch (error) {
       next(new Error("Invalid or expired token"));
     }
   });
 
-  // ============ NAMESPACE: /loyalty ==========
-  const loyaltyNS = io.of("/loyalty");
-
+  // when anyone run this they get add to user room
   loyaltyNS.on("connection", (socket) => {
-    logger("websocket", "Merchant connected to /loyalty", {
-      socketId: socket.id,
-    });
+    // Every authenticated user gets a personal room
+    socket.join(`user:${socket.user.userId}`);
 
-    // EVENT: merchant:join
-    socket.on("merchant:join", (data, callback) => {
+    socket.on("business:join", async (data, callback) => {
       try {
         const { businessId } = data;
 
         if (!businessId) {
-          logger("websocket", "Merchant join failed - no businessId", {
-            socketId: socket.id,
-          });
-          return callback({ success: false, error: "businessId is required" });
-        }
-
-        if (socket.userType !== "business") {
-          logger("websocket", "Non-business tried to join merchant room", {
-            socketId: socket.id,
-            userType: socket.userType,
-          });
           return callback({
             success: false,
-            error: "Only business accounts can join as merchant",
+            error: "businessId is required",
           });
         }
 
+        // Must be a business account
+        if (socket.user.userType !== "business") {
+          return callback({
+            success: false,
+            error: "Only business accounts can join business rooms",
+          });
+        }
+
+        // Business account can only join its own room
+        if (socket.user.userId.toString() !== businessId.toString()) {
+          return callback({
+            success: false,
+            error: "You are not authorized to join this business room",
+          });
+        }
+
+        // Verify business actually exists and is active
+        const business = await Business.findOne({
+          _id: businessId,
+          status: "active",
+          isDeleted: false,
+        });
+
+        if (!business) {
+          return callback({
+            success: false,
+            error: "Business not found or inactive",
+          });
+        }
+
+        // Authorized
         socket.join(`business:${businessId}`);
         socket.businessId = businessId;
 
-        const activeConnections = loyaltyNS.adapter.rooms.get(
-          `business:${businessId}`,
-        )?.size || 1;
-
-        logger("websocket", "Merchant joined room", {
-          socketId: socket.id,
-          businessId,
-          activeConnections,
-        });
-
         callback({
           success: true,
-          message: "Successfully joined merchant dashboard",
           businessId,
-          activeConnections,
         });
-      } catch (err) {
-        logger("websocket", "Error in merchant:join", {
-          socketId: socket.id,
-          error: err.message,
-        });
-        callback({ success: false, error: err.message });
-      }
-    });
-
-    // EVENT: disconnect
-    socket.on("disconnect", () => {
-      try {
-        if (socket.businessId) {
-          const activeConnections = loyaltyNS.adapter.rooms.get(
-            `business:${socket.businessId}`,
-          )?.size || 0;
-
-          logger("websocket", "Merchant disconnected", {
-            socketId: socket.id,
-            businessId: socket.businessId,
-            remainingConnections: activeConnections,
-          });
-        }
-      } catch (err) {
-        logger("websocket", "Error in disconnect handler", {
-          error: err.message,
+      } catch (error) {
+        callback({
+          success: false,
+          error: "Failed to join business room",
         });
       }
     });
 
-    // EVENT: ping (heartbeat)
-    socket.on("ping", (callback) => {
-      callback({ status: "pong", timestamp: new Date().toISOString() });
+    socket.on("disconnect", (reason) => {
+      logger("websocket", "Socket disconnected", {
+        socketId: socket.id,
+        userId: socket.user.userId,
+        reason,
+      });
     });
   });
+  return io;
+};
+export const getIo = () => {
+  if (!io) {
+    throw new Error("Socket.IO not initialized");
+  }
 
   return io;
 };
-
-// ============ EMISSION FUNCTIONS ==========
-
-/**
- * Emit new loyalty request to all merchants of a business
- */
-export const emitNewLoyaltyRequest = (io, businessId, requestData) => {
-  try {
-    io.of("/loyalty").to(`business:${businessId}`).emit("request:new", {
+export const emitNewLoyaltyRequest = (businessId, requestData) => {
+  const io = getIo();
+  io.of("/loyalty")
+    .to(`business:${businessId}`)
+    .emit("request:new", {
       requestId: requestData.requestId,
-      businessCustomerId: requestData.businessCustomerId,
+
       customer: {
         id: requestData.customerId,
-        email: requestData.customerEmail,
         name: requestData.customerName,
       },
-      loyalty: {
-        points: requestData.currentPoints,
-        tier: requestData.currentTier,
-        stampCards: requestData.stampCards || [],
-      },
+
       expiresAt: requestData.expiresAt,
+
       timestamp: new Date().toISOString(),
     });
+};
 
-    const recipientCount =
-      io.of("/loyalty").adapter.rooms.get(`business:${businessId}`)?.size || 0;
-    logger("websocket", "New request emitted", {
-      businessId,
+// Merchant completed request → update customer
+export const emitRequestCompleted = (customerId, requestData) => {
+  const io = getIo();
+  io.of("/loyalty")
+    .to(`user:${customerId}`)
+    .emit("request:completed", {
       requestId: requestData.requestId,
-      recipients: recipientCount,
-    });
-  } catch (err) {
-    logger("websocket", "Error emitting new request", {
-      businessId,
-      error: err.message,
-    });
-  }
-};
-
-/**
- * Emit request completion to all merchants of a business
- */
-export const emitRequestCompleted = (io, businessId, completionData) => {
-  try {
-    io.of("/loyalty").to(`business:${businessId}`).emit("request:completed", {
-      requestId: completionData.requestId,
       status: "completed",
-      type: completionData.type,
+
       loyalty: {
-        pointsAwarded: completionData.pointsAwarded,
-        stampsAwarded: completionData.stampsAwarded,
-        newPoints: completionData.customerUpdate.newPoints,
-        newTier: completionData.customerUpdate.newTier,
-        stampCards: completionData.customerUpdate.stampCards,
+        points: requestData.points,
+        stamps: requestData.stamps,
+        reward: requestData.reward,
       },
+
       timestamp: new Date().toISOString(),
     });
-
-    logger("websocket", "Request completion emitted", {
-      businessId,
-      requestId: completionData.requestId,
-    });
-  } catch (err) {
-    logger("websocket", "Error emitting completion", {
-      businessId,
-      error: err.message,
-    });
-  }
 };
-
-/**
- * Emit request rejection to all merchants of a business
- */
-export const emitRequestRejected = (io, businessId, requestId, reason) => {
-  try {
-    io.of("/loyalty").to(`business:${businessId}`).emit("request:rejected", {
-      requestId,
+// Merchant rejected request → notify customer
+export const emitRequestRejected = (customerId, requestData) => {
+  const io = getIo();
+  io.of("/loyalty")
+    .to(`user:${customerId}`)
+    .emit("request:rejected", {
+      requestId: requestData.requestId,
       status: "rejected",
-      reason,
+      reason: requestData.reason || null,
       timestamp: new Date().toISOString(),
     });
-
-    logger("websocket", "Request rejection emitted", {
-      businessId,
-      requestId,
-    });
-  } catch (err) {
-    logger("websocket", "Error emitting rejection", {
-      businessId,
-      error: err.message,
-    });
-  }
-};
-
-/**
- * Get active merchant connections count for a business
- */
-export const getBusinessConnectionCount = (io, businessId) => {
-  try {
-    const room = io.of("/loyalty").adapter.rooms.get(`business:${businessId}`);
-    return room ? room.size : 0;
-  } catch (err) {
-    logger("websocket", "Error getting connection count", {
-      businessId,
-      error: err.message,
-    });
-    return 0;
-  }
 };
