@@ -4,6 +4,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "seed:roles": "node src/seeders/role.seed.js"
   },
