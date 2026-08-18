@@ -1,11 +1,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
-import { createRequire } from "module";
 
-const require = createRequire(import.meta.url);
-
-const serviceAccount = require(
-  "./loyalty-program-ce00d-firebase-adminsdk-fbsvc-a20767648f.json"
-);
+// Parse service account JSON from environment variable
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 const firebaseApp =
   getApps().length === 0
