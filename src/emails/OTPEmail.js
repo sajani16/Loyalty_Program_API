@@ -13,7 +13,7 @@ import {
 import React from "react";
 
 const LOGO_URL =
-  "https://smartqrlink.s3.ap-southeast-2.amazonaws.com/images/smartQR.svg";
+  "https://LoyaltyHublink.s3.ap-southeast-2.amazonaws.com/images/LoyaltyHub.svg";
 
 export default function OTPEmail({
   name,
@@ -28,8 +28,8 @@ export default function OTPEmail({
       : "Thank you for signing up! Use the code below to verify your email address.";
   const preview =
     purpose === "reset"
-      ? "Reset your SmartQR password"
-      : "Verify your email for SmartQR";
+      ? "Reset your LoyaltyHub password"
+      : "Verify your email for LoyaltyHub";
 
   return React.createElement(
     Html,
@@ -47,7 +47,7 @@ export default function OTPEmail({
           { style: headerBandStyle },
           React.createElement(Img, {
             src: LOGO_URL,
-            alt: "SmartQR",
+            alt: "LoyaltyHub",
             style: logoStyle,
           })
         ),

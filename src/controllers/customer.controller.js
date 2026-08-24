@@ -137,3 +137,92 @@ export const updateMyCustomer = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * PUT /api/me/customer/profile-image
+ * Update customer profile image (Customer only)
+ */
+export const updateProfileImage = async (req, res, next) => {
+  try {
+    console.log("updateProfileImage called");
+    console.log("req.file:", req.file);
+    console.log("req.files:", req.files);
+    
+    if (!req.file) {
+      console.log("No file received in request");
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+    }
+
+    // Use 'path' instead of 'secure_url' for Cloudinary storage
+    const imageUrl = req.file.secure_url || req.file.path;
+    console.log("File uploaded successfully:", imageUrl);
+    const result = await customerService.updateCustomer(req.user.id, {
+      profileImage: imageUrl,
+    });
+    res.json(result);
+  } catch (err) {
+    console.log("Error in updateProfileImage:", err);
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+};
+
+/**
+ * POST /api/me/customer/change-password
+ * Change customer password (Customer only)
+ */
+export const changePassword = async (req, res, next) => {
+  try {
+    const result = await customerService.changePassword(
+      req.user.id,
+      req.body.currentPassword,
+      req.body.newPassword,
+    );
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/**
+ * GET /api/me/customer/activity-history
+ * Get customer's activity history (all loyalty requests they've made)
+ */
+export const getActivityHistory = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+    const customerId = req.user.id;
+
+    const result = await customerService.getActivityHistory(customerId, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      status,
+    });
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+};

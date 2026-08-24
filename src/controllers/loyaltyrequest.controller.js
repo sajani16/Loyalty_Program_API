@@ -2,8 +2,6 @@ import * as loyaltyService from "../services/loyaltyrequest.services.js";
 import * as bcService from "../services/businesscustomer.services.js";
 import { validateLoyaltyRequestInput } from "../validations/loyaltyrequest.validations.js";
 
-
-
 export const createQuickLoyaltyRequestViaQR = async (req, res, next) => {
   try {
     const customerId = req.user.id;
@@ -13,7 +11,7 @@ export const createQuickLoyaltyRequestViaQR = async (req, res, next) => {
       customerId,
       businessId,
     );
-    
+
     res.status(201).json(result);
   } catch (err) {
     if (err.status) {
@@ -232,8 +230,6 @@ export const completeLoyaltyRequest = async (req, res, next) => {
       id,
       req.body,
     );
-    // Notify customer after successful DB update
-    emitRequestCompleted(getIo(), result.customerId, result);
     res.json(result);
   } catch (err) {
     if (err.status) {

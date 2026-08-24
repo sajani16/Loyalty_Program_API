@@ -1,4 +1,5 @@
 import LoyaltyRequest from "../models/LoyaltyRequest.js";
+import BusinessCustomer from "../models/BusinessCustomer.js";
 
 /**
  * Create a new loyalty request
@@ -13,7 +14,15 @@ export async function createLoyaltyRequest(loyaltyRequestObj) {
  */
 export async function findLoyaltyRequestById(id) {
   return LoyaltyRequest.findById(id)
-    .populate("businessCustomerId")
+    .select("_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt completedAt")
+    .populate({
+      path: "businessCustomerId",
+      select: "businessId tier customerId",
+      populate: {
+        path: "businessId",
+        select: "name",
+      },
+    })
     .lean();
 }
 
@@ -28,6 +37,7 @@ export async function findLoyaltyRequestsByBusinessCustomer(
     businessCustomerId,
     ...filter,
   })
+    .select("_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -45,7 +55,10 @@ export async function findLoyaltyRequestsByBusinessCustomerPaginated(
       businessCustomerId,
       ...filter,
     },
-    options,
+    {
+      ...options,
+      select: "_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
+    },
   );
   return data;
 }
@@ -59,6 +72,7 @@ export async function findPendingLoyaltyRequests(businessCustomerId) {
     status: "pending",
     expiresAt: { $gt: new Date() },
   })
+    .select("_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -67,13 +81,19 @@ export async function findPendingLoyaltyRequests(businessCustomerId) {
  * Get loyalty requests by business (through businessCustomer)
  */
 export async function findLoyaltyRequestsByBusiness(businessId, filter = {}) {
-  return LoyaltyRequest.find()
+  const businessCustomerIds = await BusinessCustomer.find({
+    businessId,
+  }).select("_id");
+
+  return LoyaltyRequest.find({
+    businessCustomerId: { $in: businessCustomerIds.map((bc) => bc._id) },
+    ...filter,
+  })
+    .select("_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt")
     .populate({
       path: "businessCustomerId",
-      match: { businessId },
-      select: "customerId businessId",
+      select: "customerId",
     })
-    .find({ businessCustomerId: { $ne: null } })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -86,16 +106,21 @@ export async function findLoyaltyRequestsByBusinessPaginated(
   filter,
   options,
 ) {
+  const businessCustomerIds = await BusinessCustomer.find({
+    businessId,
+  }).select("_id");
+
   const data = await LoyaltyRequest.paginate(
     {
-      "businessCustomerId.businessId": businessId,
+      businessCustomerId: { $in: businessCustomerIds.map((bc) => bc._id) },
       ...filter,
     },
     {
       ...options,
+      select: "_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
       populate: {
         path: "businessCustomerId",
-        select: "customerId businessId",
+        select: "customerId",
       },
     },
   );
@@ -109,7 +134,11 @@ export async function updateLoyaltyRequest(id, updateData) {
   return LoyaltyRequest.findByIdAndUpdate(id, updateData, {
     new: true,
   })
-    .populate("businessCustomerId")
+    .select("_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt completedAt")
+    .populate({
+      path: "businessCustomerId",
+      select: "businessId tier",
+    })
     .lean();
 }
 
@@ -128,7 +157,9 @@ export async function findExpiredLoyaltyRequests() {
   return LoyaltyRequest.find({
     status: "pending",
     expiresAt: { $lt: new Date() },
-  }).lean();
+  })
+    .select("_id businessCustomerId status expiresAt")
+    .lean();
 }
 
 /**
@@ -181,4 +212,39 @@ export async function getTotalPointsAndStamps(businessCustomerId) {
   ]);
 
   return results[0] || { totalPoints: 0, totalStamps: 0 };
+}
+
+
+/**
+ * Get paginated loyalty requests for a customer (their activity history)
+ */
+export async function findLoyaltyRequestsByCustomerPaginated(
+  customerId,
+  filter,
+  options,
+) {
+  const businessCustomerIds = await BusinessCustomer.find({
+    customerId,
+  }).select("_id");
+
+  const data = await LoyaltyRequest.paginate(
+    {
+      businessCustomerId: { $in: businessCustomerIds.map((bc) => bc._id) },
+      ...filter,
+    },
+    {
+      ...options,
+      select: "businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
+      populate: {
+        path: "businessCustomerId",
+        select: "businessId tier",
+        populate: {
+          path: "businessId",
+          select: "name",
+        },
+      },
+    },
+  );
+
+  return data;
 }

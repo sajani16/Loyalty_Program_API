@@ -134,3 +134,53 @@ export const updateMyBusiness = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * PUT /api/me/business/logo
+ * Update business logo (Business only)
+ */
+export const updateBusinessLogo = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+    }
+
+    // Use 'path' instead of 'secure_url' for Cloudinary storage
+    const logoUrl = req.file.secure_url || req.file.path;
+    const result = await businessService.updateBusiness(req.user.id, {
+      businessLogo: logoUrl,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/me/business/change-password
+ * Change business password (Business only)
+ */
+export const changePassword = async (req, res, next) => {
+  try {
+    const result = await businessService.changePassword(
+      req.user.id,
+      req.body.currentPassword,
+      req.body.newPassword,
+    );
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

@@ -11,6 +11,10 @@ const BusinessSchema = new mongoose.Schema(
       sparse: true,
       index: true,
     },
+    businessLogo: {
+      type: String,
+      default: null,
+    },
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Role",

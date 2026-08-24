@@ -2,8 +2,20 @@ import express from "express";
 import * as customerController from "../controllers/customer.controller.js";
 import auth from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/rbac.js";
+import { uploadImage } from "../middlewares/upload.js";
 
 const customerRoutes = express.Router();
+
+// Customer routes - Self management (MUST come before /:id routes)
+customerRoutes.get("/me", auth, requireRole("customer"), customerController.getMyCustomer);
+
+customerRoutes.put("/me", auth, requireRole("customer"), customerController.updateMyCustomer);
+
+customerRoutes.put("/me/profile-image", auth, requireRole("customer"), uploadImage.single("profileImage"), customerController.updateProfileImage);
+
+customerRoutes.post("/me/change-password", auth, requireRole("customer"), customerController.changePassword);
+
+customerRoutes.get("/me/activity-history", auth, requireRole("customer"), customerController.getActivityHistory);
 
 // Business routes - Create and manage customers
 customerRoutes.post(
@@ -38,10 +50,5 @@ customerRoutes.delete(
   requireRole("business"),
   customerController.deleteCustomer,
 );
-
-// Customer routes - Self management
-customerRoutes.get("/me", auth, requireRole("customer"), customerController.getMyCustomer);
-
-customerRoutes.put("/me", auth, requireRole("customer"), customerController.updateMyCustomer);
 
 export default customerRoutes;

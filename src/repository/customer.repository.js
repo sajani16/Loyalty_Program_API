@@ -32,6 +32,12 @@ export async function findCustomerById(id) {
     .lean();
 }
 
+export async function findCustomerByIdWithPassword(id) {
+  return Customer.findOne({ _id: id, isDeleted: false })
+    .populate("role")
+    .lean();
+}
+
 export async function findUserById(id) {
   return Customer.findOne({ _id: id, isDeleted: false })
     .select(

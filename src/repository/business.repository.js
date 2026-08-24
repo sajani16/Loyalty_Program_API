@@ -32,6 +32,12 @@ export async function findBusinessById(id) {
     .lean();
 }
 
+export async function findBusinessByIdWithPassword(id) {
+  return Business.findOne({ _id: id, isDeleted: false })
+    .populate("role")
+    .lean();
+}
+
 export async function findUserById(id) {
   return Business.findOne({ _id: id, isDeleted: false })
     .select(

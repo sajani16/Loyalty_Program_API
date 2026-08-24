@@ -185,3 +185,39 @@ export const deleteBusiness = async (id) => {
     message: "Business deleted successfully",
   };
 };
+
+/**
+ * Change business password
+ */
+export const changePassword = async (businessId, currentPassword, newPassword) => {
+  const business = await businessRepo.findBusinessByIdWithPassword(businessId);
+
+  if (!business) {
+    const error = new Error("Business not found");
+    error.status = 404;
+    throw error;
+  }
+
+  // Verify current password
+  const isPasswordMatch = await bcrypt.compare(currentPassword, business.password);
+  if (!isPasswordMatch) {
+    const error = new Error("Current password is incorrect");
+    error.status = 400;
+    logger("business", "Change password failed - incorrect current password", { businessId });
+    throw error;
+  }
+
+  // Hash new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update password
+  await businessRepo.updateBusiness(businessId, { password: hashedPassword });
+
+  logger("business", "Password changed successfully", { businessId });
+
+  return {
+    success: true,
+    data: null,
+    message: "Password changed successfully",
+  };
+};

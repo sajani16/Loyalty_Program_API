@@ -14,8 +14,8 @@ export const sendOTPEmail = async ({
 }) => {
   const subject =
     purpose === "reset"
-      ? "Reset your password — SmartQR"
-      : "Verify your email — SmartQR";
+      ? "Reset your password — LoyaltyHub"
+      : "Verify your email — LoyaltyHub";
 
   const html = await render(createElement(OTPEmail, { name, otp, purpose }));
 
@@ -39,7 +39,7 @@ export const sendPasswordResetLinkEmail = async ({
   await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Reset your password — SmartQR",
+    subject: "Reset your password — LoyaltyHub",
     html,
   });
 };
@@ -66,7 +66,7 @@ export const sendCustomerInvitationEmail = async ({
   await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: `Invitation to join ${businessName} on SmartQR`,
+    subject: `Invitation to join ${businessName} on LoyaltyHub`,
     html,
   });
 };
@@ -84,7 +84,7 @@ export const sendWelcomeEmail = async ({
   await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Welcome to SmartQR — Your Restaurant Account is Ready!",
+    subject: "Welcome to LoyaltyHub — Your Restaurant Account is Ready!",
     html,
   });
 };

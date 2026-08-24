@@ -13,7 +13,7 @@ import {
 import React from "react";
 
 const LOGO_URL =
-  "https://smartqrlink.s3.ap-southeast-2.amazonaws.com/images/smartQR.svg";
+  "https://LoyaltyHublink.s3.ap-southeast-2.amazonaws.com/images/LoyaltyHub.svg";
 
 export default function PasswordResetLinkEmail({
   name,
@@ -23,7 +23,7 @@ export default function PasswordResetLinkEmail({
     Html,
     null,
     React.createElement(Head, null),
-    React.createElement(Preview, null, "Reset your SmartQR password"),
+    React.createElement(Preview, null, "Reset your LoyaltyHub password"),
     React.createElement(
       Body,
       { style: bodyStyle },
@@ -35,7 +35,7 @@ export default function PasswordResetLinkEmail({
           { style: headerBandStyle },
           React.createElement(Img, {
             src: LOGO_URL,
-            alt: "SmartQr",
+            alt: "LoyaltyHub",
             style: logoStyle,
           })
         ),

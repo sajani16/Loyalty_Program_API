@@ -5,12 +5,22 @@ export async function createRole(roleObj) {
   return role.save();
 }
 
+/**
+ * Find role by name
+ */
 export async function findRoleByName(name) {
-  return Role.findOne({ name, isDeleted: false }).lean();
+  return Role.findOne({ name, isDeleted: false })
+    .select("_id name permissions")
+    .lean();
 }
 
+/**
+ * Find role by ID
+ */
 export async function findRoleById(id) {
-  return Role.findOne({ _id: id, isDeleted: false }).lean();
+  return Role.findOne({ _id: id, isDeleted: false })
+    .select("_id name permissions")
+    .lean();
 }
 
 export async function updateRole(id, update) {
@@ -19,8 +29,13 @@ export async function updateRole(id, update) {
   }).lean();
 }
 
+/**
+ * List all roles
+ */
 export async function listRoles(filter = {}) {
-  return Role.find({ ...filter, isDeleted: false }).lean();
+  return Role.find({ ...filter, isDeleted: false })
+    .select("_id name description permissions")
+    .lean();
 }
 
 export async function deleteRole(id) {

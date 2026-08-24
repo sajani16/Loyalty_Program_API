@@ -12,14 +12,18 @@ export async function createProduct(productObj) {
  * Find product by ID
  */
 export async function findProductById(id) {
-  return Product.findById(id).lean();
+  return Product.findById(id)
+    .select("_id businessId name price stampEligible isActive")
+    .lean();
 }
 
 /**
  * Find product by businessId and name
  */
 export async function findProductByBusinessAndName(businessId, name) {
-  return Product.findOne({ businessId, name }).lean();
+  return Product.findOne({ businessId, name })
+    .select("_id businessId name price stampEligible isActive")
+    .lean();
 }
 
 /**
@@ -30,6 +34,7 @@ export async function findProductsByBusiness(businessId, filter = {}) {
     businessId,
     ...filter,
   })
+    .select("_id businessId name price stampEligible isActive")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -43,7 +48,10 @@ export async function findProductsByBusinessPaginated(businessId, filter, option
       businessId,
       ...filter,
     },
-    options,
+    {
+      ...options,
+      select: "_id businessId name price stampEligible isActive",
+    },
   );
   return data;
 }
@@ -57,6 +65,7 @@ export async function findStampEligibleProducts(businessId) {
     stampEligible: true,
     isActive: true,
   })
+    .select("_id businessId name price")
     .sort({ name: 1 })
     .lean();
 }
@@ -67,7 +76,9 @@ export async function findStampEligibleProducts(businessId) {
 export async function updateProduct(id, updateData) {
   return Product.findByIdAndUpdate(id, updateData, {
     new: true,
-  }).lean();
+  })
+    .select("_id businessId name price stampEligible isActive")
+    .lean();
 }
 
 /**
@@ -100,6 +111,7 @@ export async function getActiveProducts(businessId) {
     businessId,
     isActive: true,
   })
+    .select("_id businessId name price stampEligible")
     .sort({ name: 1 })
     .lean();
 }

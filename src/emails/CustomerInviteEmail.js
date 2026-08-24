@@ -13,7 +13,7 @@ import {
 import React from "react";
 
 const LOGO_URL =
-  "https://smartqrlink.s3.ap-southeast-2.amazonaws.com/images/smartQR.svg";
+  "https://LoyaltyHublink.s3.ap-southeast-2.amazonaws.com/images/LoyaltyHub.svg";
 
 export default function MemberInviteEmail({
   memberName = "",
@@ -41,7 +41,7 @@ export default function MemberInviteEmail({
           { style: headerBandStyle },
           React.createElement(Img, {
             src: LOGO_URL,
-            alt: "SmartQR",
+            alt: "LoyaltyHub",
             width: "120",
             style: logoStyle,
           })
@@ -62,7 +62,7 @@ export default function MemberInviteEmail({
             { style: paragraphStyle },
             "You've been invited by ",
             React.createElement("strong", null, businessName),
-            " to join SmartQR."
+            " to join LoyaltyHub."
           ),
           React.createElement(
             Text,

@@ -190,3 +190,84 @@ export const deleteCustomer = async (id) => {
     message: "Customer deleted successfully",
   };
 };
+
+/**
+ * Change customer password
+ */
+export const changePassword = async (customerId, currentPassword, newPassword) => {
+  const customer = await customerRepo.findCustomerByIdWithPassword(customerId);
+
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.status = 404;
+    throw error;
+  }
+
+  // Verify current password
+  const isPasswordMatch = await bcrypt.compare(currentPassword, customer.password);
+  if (!isPasswordMatch) {
+    const error = new Error("Current password is incorrect");
+    error.status = 400;
+    logger("customer", "Change password failed - incorrect current password", { customerId });
+    throw error;
+  }
+
+  // Hash new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update password
+  await customerRepo.updateCustomer(customerId, { password: hashedPassword });
+
+  logger("customer", "Password changed successfully", { customerId });
+
+  return {
+    success: true,
+    data: null,
+    message: "Password changed successfully",
+  };
+};
+
+/**
+ * Get customer's activity history (all loyalty requests they've made)
+ */
+export const getActivityHistory = async (customerId, { page, limit, status }) => {
+  try {
+    const loyaltyRequestRepo = await import("../repository/loyaltyrequest.repository.js");
+
+    const filter = {
+      ...(status && { status }),
+    };
+
+    const options = {
+      page,
+      limit,
+      sort: { createdAt: -1 },
+    };
+
+    const result = await loyaltyRequestRepo.findLoyaltyRequestsByCustomerPaginated(
+      customerId,
+      filter,
+      options,
+    );
+
+    logger("customer", "Activity history fetched", { customerId, page, limit });
+
+    return {
+      success: true,
+      data: result.docs,
+      meta: {
+        page: result.page,
+        limit: result.limit,
+        total: result.totalDocs,
+        pages: result.totalPages,
+      },
+      message: "Activity history fetched successfully",
+    };
+  } catch (err) {
+    logger("customer", "Failed to fetch activity history", {
+      customerId,
+      error: err.message,
+    });
+    throw err;
+  }
+};

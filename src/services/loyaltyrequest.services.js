@@ -278,10 +278,7 @@ export const getBusinessLoyaltyRequests = async (
   page,
   limit,
 ) => {
-  const filter = {};
-  if (status) {
-    filter.status = status;
-  }
+  const filter = { status: status || "pending" };
 
   const options = {
     page: page || 1,

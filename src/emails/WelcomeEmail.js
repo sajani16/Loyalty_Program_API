@@ -14,7 +14,7 @@ import {
 import React from "react";
 
 const LOGO_URL =
-  "https://smartqrlink.s3.ap-southeast-2.amazonaws.com/images/smartQR.svg";
+  "https://LoyaltyHublink.s3.ap-southeast-2.amazonaws.com/images/LoyaltyHub.svg";
 
 export default function WelcomeEmail({
   email,
@@ -26,7 +26,7 @@ export default function WelcomeEmail({
     Html,
     null,
     React.createElement(Head, null),
-    React.createElement(Preview, null, "Welcome to SmartQR!"),
+    React.createElement(Preview, null, "Welcome to LoyaltyHub!"),
     React.createElement(
       Body,
       { style: bodyStyle },
@@ -38,14 +38,14 @@ export default function WelcomeEmail({
           { style: headerBandStyle },
           React.createElement(Img, {
             src: LOGO_URL,
-            alt: "SmartQR",
+            alt: "LoyaltyHub",
             style: logoStyle,
           })
         ),
         React.createElement(
           Section,
           { style: contentStyle },
-          React.createElement(Heading, { style: headingStyle }, "Welcome to SmartQR!"),
+          React.createElement(Heading, { style: headingStyle }, "Welcome to LoyaltyHub!"),
           React.createElement(
             Text,
             { style: subHeadingStyle },
@@ -82,15 +82,15 @@ export default function WelcomeEmail({
                   },
                 },
                 "💡 ",
-                React.createElement("strong", null, "SmartQR Main Account Created:"),
+                React.createElement("strong", null, "LoyaltyHub Main Account Created:"),
                 " A business account has also been created for you under the same email. You can use these same credentials to sign in and manage your subscriptions at ",
                 React.createElement(
                   Link,
                   {
-                    href: process.env.FRONTEND_URL || "https://smartqrlink.com",
+                    href: process.env.FRONTEND_URL || "https://LoyaltyHublink.com",
                     style: linkStyle,
                   },
-                  "SmartQR Portal"
+                  "LoyaltyHub Portal"
                 ),
                 "."
               )

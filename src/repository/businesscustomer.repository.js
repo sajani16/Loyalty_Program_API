@@ -16,7 +16,8 @@ export async function findByBusinessAndCustomer(businessId, customerId) {
     businessId,
     customerId,
   })
-    .populate("businessId", "name email")
+    .select("_id businessId customerId status points tier")
+    .populate("businessId", "name")
     .populate("customerId", "name email")
     .lean();
 }
@@ -26,8 +27,9 @@ export async function findByBusinessAndCustomer(businessId, customerId) {
  */
 export async function findById(id) {
   return BusinessCustomer.findById(id)
-    .populate("businessId", "name email")
-    .populate("customerId", "name email")
+    .select("_id businessId customerId status points tier joinedAt")
+    .populate("businessId", "name")
+    .populate("customerId", "name")
     .lean();
 }
 
@@ -39,7 +41,8 @@ export async function findCustomerMemberships(customerId, filter = {}) {
     customerId,
     ...filter,
   })
-    .populate("businessId", "name email phone status")
+    .select("_id businessId customerId status points tier joinedAt")
+    .populate("businessId", "name email phone")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -52,7 +55,8 @@ export async function findBusinessCustomers(businessId, filter = {}) {
     businessId,
     ...filter,
   })
-    .populate("customerId", "name email phone status")
+    .select("_id businessId customerId status points tier joinedAt")
+    .populate("customerId", "name email")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -66,7 +70,10 @@ export async function findBusinessCustomersPaginated(businessId, filter, options
       businessId,
       ...filter,
     },
-    options,
+    {
+      ...options,
+      select: "_id businessId customerId status points tier joinedAt",
+    },
   );
   return data;
 }
@@ -78,7 +85,8 @@ export async function updateBusinessCustomer(id, updateData) {
   return BusinessCustomer.findByIdAndUpdate(id, updateData, {
     new: true,
   })
-    .populate("businessId", "name email")
+    .select("_id businessId customerId status points tier joinedAt")
+    .populate("businessId", "name")
     .populate("customerId", "name email")
     .lean();
 }
