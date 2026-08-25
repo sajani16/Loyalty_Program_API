@@ -329,9 +329,10 @@ export const getBusinessCustomers = async (businessId, status, page, limit) => {
 };
 
 /**
- * Get a specific customer membership for a business
+ * Get a specific customer membership for a business with stamp card data
  */
 export const getBusinessCustomerMembership = async (businessId, membershipId) => {
+  // Fetch membership with populated stamp card product details
   const membership = await bcRepo.findById(membershipId);
 
   if (!membership) {

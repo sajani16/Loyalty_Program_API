@@ -41,8 +41,12 @@ export async function findCustomerMemberships(customerId, filter = {}) {
     customerId,
     ...filter,
   })
-    .select("_id businessId customerId status points tier joinedAt")
+    .select("_id businessId customerId status points tier stampCards joinedAt")
     .populate("businessId", "name email phone")
+    .populate(
+      "stampCards.productId",
+      "_id name price stampEligible stampTarget rewardQuantity isActive",
+    )
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -64,7 +68,11 @@ export async function findBusinessCustomers(businessId, filter = {}) {
 /**
  * Get paginated customers for a business
  */
-export async function findBusinessCustomersPaginated(businessId, filter, options) {
+export async function findBusinessCustomersPaginated(
+  businessId,
+  filter,
+  options,
+) {
   const data = await BusinessCustomer.paginate(
     {
       businessId,
