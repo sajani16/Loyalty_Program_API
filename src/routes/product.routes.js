@@ -15,13 +15,19 @@ productRoutes.post(
   productController.createProduct,
 );
 
+// Get only ACTIVE products for dropdowns
+productRoutes.get(
+  "/dropdown/active",
+  productController.getActiveProductsForDropdown,
+);
+
 // Get stamp-eligible products
 productRoutes.get(
   "/stamps/eligible",
   productController.getStampEligibleProducts,
 );
 
-// Get all business products
+// Get all business products (active + inactive)
 productRoutes.get(
   "/",
   productController.getBusinessProducts,

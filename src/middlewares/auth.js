@@ -52,11 +52,12 @@ export default async function auth(req, res, next) {
     }
 
     // Attach user info to request with userType
+    // Spread DB user first, then override with JWT values so userType is never clobbered
     req.user = {
+      ...user,
       id: decoded.id,
       userType: decoded.userType,
       email: decoded.email,
-      ...user,
     };
 
     next();

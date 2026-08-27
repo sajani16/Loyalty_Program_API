@@ -152,7 +152,10 @@ export const addProductsToLoyaltyRequest = async (
   }
 
   // Verify ownership
-  if (request.businessCustomerId.businessId.toString() !== businessId) {
+  // NOTE: businessId is populated (not a raw ObjectId), so we must use ._id
+  const requestBusinessId = request.businessCustomerId.businessId?._id?.toString()
+    ?? request.businessCustomerId.businessId?.toString();
+  if (requestBusinessId !== businessId) {
     const error = new Error("Forbidden - not your business");
     error.status = 403;
     logger("loyaltyrequest", "Unauthorized product addition attempt", {
@@ -162,8 +165,7 @@ export const addProductsToLoyaltyRequest = async (
     throw error;
   }
 
-  // Validate products
-  let totalAmount = 0;
+  // Validate products - now only contains productId and stamps
   for (const product of productsData) {
     const existingProduct = await productRepo.findProductById(
       product.productId,
@@ -181,20 +183,16 @@ export const addProductsToLoyaltyRequest = async (
       error.status = 403;
       throw error;
     }
-
-    totalAmount += product.unitPrice * product.quantity;
   }
 
   const updated = await loyaltyReqRepo.updateLoyaltyRequest(requestId, {
     products: productsData,
-    amountSpent: totalAmount,
   });
 
   logger("loyaltyrequest", "Products added to loyalty request", {
     businessId,
     requestId,
     productCount: productsData.length,
-    totalAmount,
   });
 
   return {
@@ -278,7 +276,12 @@ export const getBusinessLoyaltyRequests = async (
   page,
   limit,
 ) => {
-  const filter = { status: status || "pending" };
+  const filter = {};
+  
+  // Only add status filter if it's not "all"
+  if (status && status !== "all") {
+    filter.status = status;
+  }
 
   const options = {
     page: page || 1,
@@ -311,6 +314,53 @@ export const getBusinessLoyaltyRequests = async (
 };
 
 /**
+ * Create a manual loyalty request for a customer (Merchant initiated)
+ */
+export const createManualLoyaltyRequest = async (businessId, businessCustomerId) => {
+  try {
+    // Verify business customer exists
+    const businessCustomer = await bcRepo.findById(businessCustomerId);
+    
+    if (!businessCustomer) {
+      const error = new Error("Business customer not found");
+      error.status = 404;
+      throw error;
+    }
+
+    // Skip authorization - assuming dropdown is properly filtered on frontend
+
+    // Create pending loyalty request
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    const loyaltyRequest = await loyaltyReqRepo.createLoyaltyRequest({
+      businessCustomerId,
+      status: "pending",
+      expiresAt,
+      products: [],
+    });
+
+    logger("loyaltyrequest", "Manual loyalty request created", {
+      businessId,
+      businessCustomerId,
+      requestId: loyaltyRequest._id,
+    });
+
+    return {
+      success: true,
+      data: loyaltyRequest,
+      message: "Loyalty request created successfully",
+    };
+  } catch (err) {
+    logger("loyaltyrequest", "Failed to create manual loyalty request", {
+      businessId,
+      businessCustomerId,
+      error: err.message,
+    });
+    throw err;
+  }
+};
+
+/**
  * Complete a loyalty request (Business approves purchase and awards loyalty)
  * Handles both STAMP-BASED and POINT-BASED loyalty types
  */
@@ -334,7 +384,10 @@ export const completeLoyaltyRequest = async (
   }
 
   // Verify ownership
-  if (request.businessCustomerId.businessId.toString() !== businessId) {
+  // NOTE: businessId is populated (not a raw ObjectId), so we must use ._id
+  const requestBusinessId = request.businessCustomerId.businessId?._id?.toString()
+    ?? request.businessCustomerId.businessId?.toString();
+  if (requestBusinessId !== businessId) {
     const error = new Error("Forbidden - not your business");
     error.status = 403;
     logger("loyaltyrequest", "Unauthorized completion attempt", {
@@ -376,8 +429,9 @@ export const completeLoyaltyRequest = async (
 
   // ========== STAMP-BASED LOYALTY ==========
   if (completionData.type === "stamp" && completionData.products) {
-    // Merchant selected products by quantity (stamp tracking)
-    updatedStampCards = [...(businessCustomer.stampCards || [])];
+    // For each product, we need to update or create a stamp card
+    // Ensure we don't create duplicates for the same product
+    updatedStampCards = businessCustomer.stampCards || [];
 
     for (const product of completionData.products) {
       const productData = await productRepo.findProductById(product.productId);
@@ -397,38 +451,55 @@ export const completeLoyaltyRequest = async (
         throw error;
       }
 
-      const productId = product.productId.toString();
-      let stampCard = updatedStampCards.find(
-        (sc) => sc.productId.toString() === productId,
+      const productIdStr = product.productId.toString();
+
+      // Find existing card for this product
+      let existingCard = updatedStampCards.find(
+        (sc) => {
+          const scProductId = sc.productId._id?.toString?.() || sc.productId?.toString?.();
+          return scProductId === productIdStr;
+        }
       );
 
-      if (!stampCard) {
-        stampCard = {
+      if (existingCard) {
+        // Update existing card - add to progress
+        existingCard.progress += product.stamps;
+        
+        // Check if stamp target is reached
+        if (productData.stampTarget && existingCard.progress >= productData.stampTarget) {
+          const completedCount = Math.floor(
+            existingCard.progress / productData.stampTarget,
+          );
+          existingCard.completedCards = completedCount;
+          stampsAwarded += completedCount;
+
+          logger("loyaltyrequest", "Stamp target reached (updated)", {
+            businessCustomerId,
+            productId: productIdStr,
+            completedCards: completedCount,
+            progress: existingCard.progress,
+          });
+        }
+      } else {
+        // Create new stamp card (first time this product is scanned)
+        let newProgress = product.stamps;
+        let newCompletedCards = 0;
+
+        if (productData.stampTarget && newProgress >= productData.stampTarget) {
+          newCompletedCards = Math.floor(newProgress / productData.stampTarget);
+          stampsAwarded += newCompletedCards;
+
+          logger("loyaltyrequest", "Stamp target reached (new card)", {
+            businessCustomerId,
+            productId: productIdStr,
+            completedCards: newCompletedCards,
+          });
+        }
+
+        updatedStampCards.push({
           productId: product.productId,
-          progress: 0,
-          completedCards: 0,
-        };
-        updatedStampCards.push(stampCard);
-      }
-
-      // Add quantity to progress
-      stampCard.progress += product.quantity;
-
-      // Check if stamp target is reached
-      if (
-        productData.stampTarget &&
-        stampCard.progress >= productData.stampTarget
-      ) {
-        const completedCount = Math.floor(
-          stampCard.progress / productData.stampTarget,
-        );
-        stampCard.completedCards = completedCount;
-        stampsAwarded += completedCount;
-
-        logger("loyaltyrequest", "Stamp target reached", {
-          businessCustomerId,
-          productId,
-          stampCard: completedCount,
+          progress: newProgress,
+          completedCards: newCompletedCards,
         });
       }
     }
@@ -547,7 +618,10 @@ export const rejectLoyaltyRequest = async (businessId, requestId, reason) => {
   }
 
   // Verify ownership
-  if (request.businessCustomerId.businessId.toString() !== businessId) {
+  // NOTE: businessId is populated (not a raw ObjectId), so we must use ._id
+  const rejectBusinessId = request.businessCustomerId.businessId?._id?.toString()
+    ?? request.businessCustomerId.businessId?.toString();
+  if (rejectBusinessId !== businessId) {
     const error = new Error("Forbidden - not your business");
     error.status = 403;
     logger("loyaltyrequest", "Unauthorized rejection attempt", {

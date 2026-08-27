@@ -53,19 +53,33 @@ export const getProduct = async (req, res, next) => {
 
 /**
  * GET /api/products
- * Get all products for authenticated business
+ * Get all products for authenticated business (active + inactive)
  */
 export const getBusinessProducts = async (req, res, next) => {
   try {
     const businessId = req.user.id;
-    const { isActive = true, page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10 } = req.query;
 
     const result = await productService.getBusinessProducts(
       businessId,
-      isActive === "false" ? false : isActive === "true" ? true : undefined,
+       // undefined = all products (active + inactive)
       parseInt(page),
       parseInt(limit),
     );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/products/dropdown/active
+ * Get only ACTIVE products for dropdowns (Business only)
+ */
+export const getActiveProductsForDropdown = async (req, res, next) => {
+  try {
+    const businessId = req.user.id;
+    const result = await productService.getActiveProductsForDropdown(businessId);
     res.json(result);
   } catch (err) {
     next(err);

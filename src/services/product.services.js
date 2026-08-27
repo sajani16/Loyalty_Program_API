@@ -73,11 +73,11 @@ export const getProduct = async (productId) => {
 /**
  * Get all products for a business
  */
-export const getBusinessProducts = async (businessId, isActive = true, page, limit) => {
+export const getBusinessProducts = async (businessId, page, limit) => {
   const filter = {};
-  if (isActive !== undefined) {
-    filter.isActive = isActive;
-  }
+  // if (isActive !== undefined) {
+  //   filter.isActive = isActive;
+  // }
 
   const options = {
     page: page || 1,
@@ -124,6 +124,28 @@ export const getStampEligibleProducts = async (businessId) => {
     success: true,
     data: products,
     message: "Stamp-eligible products fetched successfully",
+  };
+};
+
+/**
+ * Get only ACTIVE products for dropdowns
+ * Used when customer/merchant needs to select from available products
+ */
+export const getActiveProductsForDropdown = async (businessId) => {
+  const products = await productRepo.findProductsByBusiness(
+    businessId,
+    { isActive: true },
+  );
+
+  logger("product", "Active products for dropdown retrieved", {
+    businessId,
+    count: products.length,
+  });
+
+  return {
+    success: true,
+    data: products,
+    message: "Active products fetched successfully",
   };
 };
 

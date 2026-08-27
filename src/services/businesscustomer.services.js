@@ -301,7 +301,10 @@ export const getBusinessCustomers = async (businessId, status, page, limit) => {
     page: page || 1,
     limit: limit || 10,
     sort: { createdAt: -1 },
-    populate: { path: "customerId", select: "name email phone status" },
+    populate: { 
+      path: "customerId", 
+      select: "name email phone status",
+    },
   };
 
   const result = await bcRepo.findBusinessCustomersPaginated(

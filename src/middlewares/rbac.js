@@ -16,7 +16,7 @@ export const requireRole = (...allowedRoles) => {
         });
       }
 
-      const userRole = user.role?.name;
+      const userRole = user.role?.name ?? user.userType;
 
       // Superadmin or admin bypasses role check for business endpoints
       if (

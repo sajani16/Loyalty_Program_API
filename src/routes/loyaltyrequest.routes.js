@@ -30,6 +30,14 @@ loyaltyRoutes.get(
 );
 
 // ============ BUSINESS ROUTES ============
+// Merchant creates a loyalty request for a customer (manual)
+loyaltyRoutes.post(
+  "/",
+  auth,
+  requireRole("business"),
+  loyaltyController.createManualLoyaltyRequest,
+);
+
 // Merchant adds products to pending request
 loyaltyRoutes.patch(
   "/:id/add-products",
@@ -44,6 +52,14 @@ loyaltyRoutes.get(
   auth,
   requireRole("business"),
   loyaltyController.getBusinessLoyaltyRequests,
+);
+
+// Merchant views a specific customer's loyalty history (by businessCustomerId)
+loyaltyRoutes.get(
+  "/business/customer/:businessCustomerId",
+  auth,
+  requireRole("business"),
+  loyaltyController.getCustomerLoyaltyRequests,
 );
 
 // Complete loyalty request (Merchant processes & awards loyalty)

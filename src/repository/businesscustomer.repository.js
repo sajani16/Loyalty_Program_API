@@ -27,9 +27,10 @@ export async function findByBusinessAndCustomer(businessId, customerId) {
  */
 export async function findById(id) {
   return BusinessCustomer.findById(id)
-    .select("_id businessId customerId status points tier joinedAt")
-    .populate("businessId", "name")
-    .populate("customerId", "name")
+    .select("_id businessId customerId status points tier stampCards joinedAt")
+    .populate("businessId", "name logo description email phone")
+    .populate("customerId", "name email phone profileImage")
+    .populate("stampCards.productId", "name price stampTarget stampEligible isActive")
     .lean();
 }
 
@@ -80,7 +81,17 @@ export async function findBusinessCustomersPaginated(
     },
     {
       ...options,
-      select: "_id businessId customerId status points tier joinedAt",
+      select: "_id businessId customerId status points tier stampCards joinedAt",
+      populate: [
+        {
+          path: "customerId",
+          select: "name email phone status",
+        },
+        {
+          path: "stampCards.productId",
+          select: "name price stampTarget stampEligible isActive",
+        },
+      ],
     },
   );
   return data;
@@ -93,9 +104,10 @@ export async function updateBusinessCustomer(id, updateData) {
   return BusinessCustomer.findByIdAndUpdate(id, updateData, {
     new: true,
   })
-    .select("_id businessId customerId status points tier joinedAt")
-    .populate("businessId", "name")
-    .populate("customerId", "name email")
+    .select("_id businessId customerId status points tier stampCards joinedAt")
+    .populate("businessId", "name logo description email phone")
+    .populate("customerId", "name email phone profileImage")
+    .populate("stampCards.productId", "name price stampTarget stampEligible isActive")
     .lean();
 }
 

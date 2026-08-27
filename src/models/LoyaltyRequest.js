@@ -8,17 +8,7 @@ const LoyaltyRequestProductSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-    productName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    unitPrice: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    quantity: {
+    stamps: {
       type: Number,
       required: true,
       min: 1,

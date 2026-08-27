@@ -46,14 +46,12 @@ export const addProductsToLoyaltyRequest = async (req, res, next) => {
     for (const product of products) {
       if (
         !product.productId ||
-        !product.productName ||
-        product.unitPrice === undefined ||
-        !product.quantity
+        product.stamps === undefined
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "Each product must have: productId, productName, unitPrice, quantity",
+            "Each product must have: productId and stamps",
         });
       }
     }
@@ -174,6 +172,38 @@ export const getBusinessLoyaltyRequests = async (req, res, next) => {
 };
 
 /**
+ * POST /api/loyalty-requests
+ * Merchant manually creates a pending loyalty request for a customer
+ */
+export const createManualLoyaltyRequest = async (req, res, next) => {
+  try {
+    const businessId = req.user.id;
+    const { businessCustomerId } = req.body;
+
+    if (!businessCustomerId) {
+      return res.status(400).json({
+        success: false,
+        message: "businessCustomerId is required",
+      });
+    }
+
+    const result = await loyaltyService.createManualLoyaltyRequest(
+      businessId,
+      businessCustomerId,
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+};
+
+/**
  * PATCH /api/loyalty-requests/:id/complete
  * Complete a loyalty request - Handles both STAMP and POINT based loyalty
  *
@@ -206,10 +236,10 @@ export const completeLoyaltyRequest = async (req, res, next) => {
         });
       }
       for (const product of products) {
-        if (!product.productId || !product.quantity) {
+        if (!product.productId || product.stamps === undefined) {
           return res.status(400).json({
             success: false,
-            message: "Each product must have productId and quantity",
+            message: "Each product must have productId and stamps",
           });
         }
       }

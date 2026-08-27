@@ -13,7 +13,7 @@ export async function createProduct(productObj) {
  */
 export async function findProductById(id) {
   return Product.findById(id)
-    .select("_id businessId name price stampEligible isActive")
+    .select("_id businessId name price stampEligible stampTarget rewardQuantity isActive")
     .lean();
 }
 
@@ -22,7 +22,7 @@ export async function findProductById(id) {
  */
 export async function findProductByBusinessAndName(businessId, name) {
   return Product.findOne({ businessId, name })
-    .select("_id businessId name price stampEligible isActive")
+    .select("_id businessId name price stampEligible stampTarget rewardQuantity isActive")
     .lean();
 }
 
@@ -34,7 +34,7 @@ export async function findProductsByBusiness(businessId, filter = {}) {
     businessId,
     ...filter,
   })
-    .select("_id businessId name price stampEligible isActive")
+    .select("_id businessId name price stampEligible stampTarget rewardQuantity isActive")
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -50,7 +50,7 @@ export async function findProductsByBusinessPaginated(businessId, filter, option
     },
     {
       ...options,
-      select: "_id businessId name price stampEligible isActive",
+      select: "_id businessId name price stampEligible stampTarget rewardQuantity isActive",
     },
   );
   return data;
@@ -65,7 +65,7 @@ export async function findStampEligibleProducts(businessId) {
     stampEligible: true,
     isActive: true,
   })
-    .select("_id businessId name price")
+    .select("_id businessId name price stampTarget rewardQuantity")
     .sort({ name: 1 })
     .lean();
 }
@@ -77,7 +77,7 @@ export async function updateProduct(id, updateData) {
   return Product.findByIdAndUpdate(id, updateData, {
     new: true,
   })
-    .select("_id businessId name price stampEligible isActive")
+    .select("_id businessId name price stampEligible stampTarget rewardQuantity isActive")
     .lean();
 }
 
@@ -111,7 +111,7 @@ export async function getActiveProducts(businessId) {
     businessId,
     isActive: true,
   })
-    .select("_id businessId name price stampEligible")
+    .select("_id businessId name price stampEligible stampTarget rewardQuantity")
     .sort({ name: 1 })
     .lean();
 }

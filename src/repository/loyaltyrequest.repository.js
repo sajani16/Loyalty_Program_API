@@ -120,7 +120,11 @@ export async function findLoyaltyRequestsByBusinessPaginated(
       select: "_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
       populate: {
         path: "businessCustomerId",
-        select: "customerId",
+        select: "customerId tier",
+        populate: {
+          path: "customerId",
+          select: "name email",
+        },
       },
     },
   );
@@ -217,34 +221,98 @@ export async function getTotalPointsAndStamps(businessCustomerId) {
 
 /**
  * Get paginated loyalty requests for a customer (their activity history)
+ * Optimized: Fetch all business-customer relationships first, then loyalty requests
  */
 export async function findLoyaltyRequestsByCustomerPaginated(
   customerId,
   filter,
   options,
 ) {
-  const businessCustomerIds = await BusinessCustomer.find({
-    customerId,
-  }).select("_id");
+  try {
+    // Step 1: Get all business-customer relationships for this customer
+    const businessCustomers = await BusinessCustomer.find({
+      customerId,
+    })
+      .populate("businessId", "name")
+      .select("_id tier")
+      .lean();
 
-  const data = await LoyaltyRequest.paginate(
-    {
-      businessCustomerId: { $in: businessCustomerIds.map((bc) => bc._id) },
+    if (!businessCustomers || businessCustomers.length === 0) {
+      // No memberships found, return empty results
+      return {
+        docs: [],
+        page: options.page || 1,
+        limit: options.limit || 10,
+        total: 0,
+        totalDocs: 0,
+        pages: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      };
+    }
+
+    const bcIds = businessCustomers.map((bc) => bc._id);
+
+    // Step 2: Build query for loyalty requests
+    const query = {
+      businessCustomerId: { $in: bcIds },
       ...filter,
-    },
-    {
-      ...options,
-      select: "businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
-      populate: {
-        path: "businessCustomerId",
-        select: "businessId tier",
-        populate: {
-          path: "businessId",
-          select: "name",
-        },
-      },
-    },
-  );
+    };
 
-  return data;
+    // Step 3: Get total count
+    const total = await LoyaltyRequest.countDocuments(query);
+
+    // Step 4: Fetch paginated loyalty requests
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+    const skip = (page - 1) * limit;
+    const pages = Math.ceil(total / limit);
+
+    const loyaltyRequests = await LoyaltyRequest.find(query)
+      .select(
+        "_id businessCustomerId amountSpent pointsAwarded stampsAwarded status createdAt",
+      )
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Step 5: Enrich loyalty requests with business customer details
+    const bcMap = new Map(businessCustomers.map((bc) => [bc._id.toString(), bc]));
+
+    const enrichedRequests = loyaltyRequests.map((req) => {
+      const bc = bcMap.get(req.businessCustomerId.toString());
+      return {
+        _id: req._id,
+        businessCustomerId: {
+          _id: req.businessCustomerId,
+          businessId: {
+            name: bc?.businessId?.name || "Unknown Business",
+          },
+          tier: bc?.tier || "basic",
+        },
+        amountSpent: req.amountSpent,
+        pointsAwarded: req.pointsAwarded,
+        stampsAwarded: req.stampsAwarded,
+        status: req.status,
+        createdAt: req.createdAt,
+      };
+    });
+
+    return {
+      docs: enrichedRequests,
+      page,
+      limit,
+      total,
+      totalDocs: total,
+      pages,
+      totalPages: pages,
+      hasNextPage: page < pages,
+      hasPrevPage: page > 1,
+    };
+  } catch (err) {
+    console.error("Error in findLoyaltyRequestsByCustomerPaginated:", err);
+    throw err;
+  }
 }
